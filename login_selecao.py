@@ -4,7 +4,7 @@ import time
 import random  
 import smtplib  
 from email.mime.text import MIMEText  
-# from funcoes_auxiliares import conectar_mongo_cepf_gestao  # Função personalizada para conectar ao MongoDB
+from funcoes_auxiliares import conectar_mongo_ieb_selecao  # Função personalizada para conectar ao MongoDB
 import bcrypt
 
 
@@ -22,8 +22,6 @@ db = conectar_mongo_ieb_selecao()
 
 # Define a coleção a ser utilizada
 col_pessoas = db["pessoas"]
-
-
 
 
 
@@ -55,7 +53,7 @@ def enviar_email(destinatario, codigo):
     senha = st.secrets["senhas"]["senha_email"]
 
     # Conteúdo do e_mail
-    assunto = f"Código de Verificação - CEPF Gestão: {codigo}"
+    assunto = f"Código de Verificação - IEB Seleção: {codigo}"
     corpo = f"""
     <html>
         <body>
@@ -287,7 +285,7 @@ def login():
     
     # Exibe o logo
     container_logo = st.container(horizontal=True, horizontal_alignment="center")
-    container_logo.image("images/ieb_logo.svg", width=300)
+    container_logo.image("images/logo_ieb.svg", width=300)
 
     st.write('')
     st.write('')
@@ -299,7 +297,7 @@ def login():
     st.markdown(
         """
         <h2 style='text-align: center; color: slategray;'>
-            Plataforma de Gestão de Projetos do CEPF Brasil
+            Plataforma de Seleção de Projetos do IEB
         </h2>
         """,
         unsafe_allow_html=True
@@ -310,92 +308,75 @@ def login():
         st.write('')
 
 
-    with st.container(horizontal=True, gap="large"):
+    esq, centro, dir = st.columns([2, 1, 2])
 
-        # Coluna da esquerda
-        with st.container():
+    with centro.form("login_form", border=False):
+        # Campo de e-mail
+        email_input = st.text_input("E-mail", width="stretch")
 
-            cols = st.columns([1, 3])
+        # Campo de senha
+        password = st.text_input("Senha", type="password", width="stretch")
 
-            cols[1].image("images/cepf_logo.png", width=400)
-            cols[1].write('')
-            cols[1].write('')
+        if st.form_submit_button("Entrar", type="primary", width=100):
+            # Busca apenas pelo e-mail
+            usuario_encontrado = col_pessoas.find_one({
+                "e_mail": {"$regex": f"^{email_input.strip()}$", "$options": "i"}
+            })
 
-            st.write('')
-            st.write('')
-            st.write('')
-            st.write('')
+            # Salva o email para possível recuperação de senha
+            st.session_state["email_para_recuperar"] = email_input.strip()
 
-        # Coluna da direita
-        with st.container():
- 
-            with st.form("login_form", border=False):
-                # Campo de e-mail
-                email_input = st.text_input("E-mail", width=300)
+            if usuario_encontrado:
+                senha_hash = usuario_encontrado.get("senha")
 
-                # Campo de senha
-                password = st.text_input("Senha", type="password", width=300)
+                # Forma segura: só aceita hashes válidos (bytes)
+                if isinstance(senha_hash, bytes) and bcrypt.checkpw(password.encode("utf-8"), senha_hash):
+                    if usuario_encontrado.get("status", "").lower() != "ativo":
+                        with st.container(width=300):
+                            st.error("Usuário inativo. Entre em contato com o a equipe do CEPF.")
 
-                if st.form_submit_button("Entrar", type="primary"):
-                    # Busca apenas pelo e-mail
-                    usuario_encontrado = col_pessoas.find_one({
-                        "e_mail": {"$regex": f"^{email_input.strip()}$", "$options": "i"}
-                    })
+                        st.stop()
 
-                    # Salva o email para possível recuperação de senha
-                    st.session_state["email_para_recuperar"] = email_input.strip()
-
-                    if usuario_encontrado:
-                        senha_hash = usuario_encontrado.get("senha")
-
-                        # Forma segura: só aceita hashes válidos (bytes)
-                        if isinstance(senha_hash, bytes) and bcrypt.checkpw(password.encode("utf-8"), senha_hash):
-                            if usuario_encontrado.get("status", "").lower() != "ativo":
-                                with st.container(width=300):
-                                    st.error("Usuário inativo. Entre em contato com o a equipe do CEPF.")
-    
-                                st.stop()
-
-                            # tipo_usuario = usuario_encontrado.get("tipo_usuario", [])
-                            tipo_usuario = usuario_encontrado.get("tipo_usuario", "")
+                    # tipo_usuario = usuario_encontrado.get("tipo_usuario", [])
+                    tipo_usuario = usuario_encontrado.get("tipo_usuario", "")
 
 
-                            # Autentica
-                            st.session_state["logged_in"] = True
-                            st.session_state["tipo_usuario"] = tipo_usuario
-                            st.session_state["nome"] = usuario_encontrado.get("nome_completo")
-                            # st.session_state["cpf"] = usuario_encontrado.get("CPF")
-                            st.session_state["id_usuario"] = usuario_encontrado.get("_id")
-                            st.session_state["projetos"] = usuario_encontrado.get("projetos", [])
-                            st.rerun()
-                        else:
-                            # Senha inválida ou não hashada corretamente
-                            st.error("E-mail ou senha inválidos!", width=300)
-                    else:
-                        st.error("E-mail ou senha inválidos!", width=300)
+                    # Autentica
+                    st.session_state["logged_in"] = True
+                    st.session_state["tipo_usuario"] = tipo_usuario
+                    st.session_state["nome"] = usuario_encontrado.get("nome_completo")
+                    # st.session_state["cpf"] = usuario_encontrado.get("CPF")
+                    st.session_state["id_usuario"] = usuario_encontrado.get("_id")
+                    st.session_state["projetos"] = usuario_encontrado.get("projetos", [])
+                    st.rerun()
+                else:
+                    # Senha inválida ou não hashada corretamente
+                    st.error("E-mail ou senha inválidos!", width=300)
+            else:
+                st.error("E-mail ou senha inválidos!", width=300)
 
-            st.write('')
-            st.write('')
+    st.write('')
+    st.write('')
 
-            with st.container(horizontal=True, horizontal_alignment="left", gap="large"):
+    with centro.container(horizontal=True, horizontal_alignment="left", gap="large"):
 
-                # Botão para recuperar senha
-                st.button(
-                    "Esqueci a senha", 
-                    key="forgot_password", 
-                    type="tertiary", 
-                    on_click=recuperar_senha_dialog
-                )
+        # Botão para recuperar senha
+        st.button(
+            "Esqueci a senha", 
+            key="forgot_password", 
+            type="tertiary", 
+            on_click=recuperar_senha_dialog
+        )
 
-                
+        
 
-                # Botão de primeiro acesso
-                st.button(
-                    "Primeiro acesso", 
-                    key="primeiro_acesso", 
-                    type="tertiary", 
-                    on_click=primeiro_acesso_dialog
-                )
+        # Botão de primeiro acesso
+        st.button(
+            "Primeiro acesso", 
+            key="primeiro_acesso", 
+            type="tertiary", 
+            on_click=primeiro_acesso_dialog
+        )
 
 
 
@@ -414,292 +395,211 @@ if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
 # Logado:
 else:
 
+    st.write('logado')
 
-    # Define as páginas disponíveis para cada tipo de usuário (com seções)
-    pags_por_tipo = {
-        "home_admin": {
-            "Projetos": [
-                st.Page("projetos_home_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
-                st.Page("projetos_lista.py", title="Projetos", icon=":material/list:"),
-                st.Page("mapa.py", title="Mapa", icon=":material/map:"),
-                st.Page("projeto_novo.py", title="Novo projeto", icon=":material/add_circle:"),
-            ],
-            "Ciclos de investimento": [
-                st.Page("ciclos_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
-                st.Page("ciclos_gerenciar.py", title="Gerenciar", icon=":material/settings:"),
-                # st.Page("nova_chamada.py", title="Cadastrar chamada", icon=":material/campaign:"),
-                # st.Page("nova_chamada.py", title="Cadastrar chamada", icon=":material/campaign:"),
+    # # Define as páginas disponíveis para cada tipo de usuário (com seções)
+    # pags_por_tipo = {
+    #     "home_admin": {
+    #         "Projetos": [
+    #             st.Page("projetos_home_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
+    #             st.Page("projetos_lista.py", title="Projetos", icon=":material/list:"),
+    #             st.Page("mapa.py", title="Mapa", icon=":material/map:"),
+    #             st.Page("projeto_novo.py", title="Novo projeto", icon=":material/add_circle:"),
+    #         ],
+    #         "Ciclos de investimento": [
+    #             st.Page("ciclos_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
+    #             st.Page("ciclos_gerenciar.py", title="Gerenciar", icon=":material/settings:"),
+    #             # st.Page("nova_chamada.py", title="Cadastrar chamada", icon=":material/campaign:"),
+    #             # st.Page("nova_chamada.py", title="Cadastrar chamada", icon=":material/campaign:"),
 
-            ],
-            "Organizações": [
-                st.Page("organizacoes_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
-                st.Page("organizacao_nova.py", title="Nova organização", icon=":material/add_business:"),
-            ],
-            "Pessoas": [
-                st.Page("pessoas_equipe.py", title="Equipe", icon=":material/badge:"),
-                st.Page("pessoas_beneficiarios.py", title="Beneficiários", icon=":material/group:"),
-                st.Page("pessoas_visitantes.py", title="Visitantes", icon=":material/visibility:"),
-                st.Page("pessoas_cadastrar.py", title="Convidar pessoas", icon=":material/person_add:"),
-                st.Page("pessoas_convites.py", title="Convites pendentes", icon=":material/mail:"),
-            ],
-            "Administração": [
-                st.Page("cadastros_auxiliares.py", title="Cadastros auxiliares", icon=":material/tune:"),
-                st.Page("relatorio_acessos.py", title="Relatório de acessos", icon=":material/bar_chart:"),
-                st.Page("relatorio_armazenamento.py", title="Armazenamento", icon=":material/home_storage:"),
-            ],
-        },
+    #         ],
+    #         "Organizações": [
+    #             st.Page("organizacoes_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
+    #             st.Page("organizacao_nova.py", title="Nova organização", icon=":material/add_business:"),
+    #         ],
+    #         "Pessoas": [
+    #             st.Page("pessoas_equipe.py", title="Equipe", icon=":material/badge:"),
+    #             st.Page("pessoas_beneficiarios.py", title="Beneficiários", icon=":material/group:"),
+    #             st.Page("pessoas_visitantes.py", title="Visitantes", icon=":material/visibility:"),
+    #             st.Page("pessoas_cadastrar.py", title="Convidar pessoas", icon=":material/person_add:"),
+    #             st.Page("pessoas_convites.py", title="Convites pendentes", icon=":material/mail:"),
+    #         ],
+    #         "Administração": [
+    #             st.Page("cadastros_auxiliares.py", title="Cadastros auxiliares", icon=":material/tune:"),
+    #             st.Page("relatorio_acessos.py", title="Relatório de acessos", icon=":material/bar_chart:"),
+    #             st.Page("relatorio_armazenamento.py", title="Armazenamento", icon=":material/home_storage:"),
+    #         ],
+    #     },
 
-        "home_equipe": {
-            "Projetos": [
-                st.Page("projetos_home_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
-                st.Page("projetos_lista.py", title="Projetos", icon=":material/list:"),
-                st.Page("mapa.py", title="Mapa", icon=":material/map:"),
-                st.Page("projeto_novo.py", title="Novo projeto", icon=":material/add_circle:"),
-            ],
-            "Ciclos de investimento": [
-                st.Page("ciclos_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
-                st.Page("ciclos_gerenciar.py", title="Gerenciar", icon=":material/settings:"),
-                # st.Page("nova_chamada.py", title="Cadastrar chamada", icon=":material/campaign:"),
-                # st.Page("nova_chamada.py", title="Cadastrar chamada", icon=":material/campaign:"),
+    #     "home_equipe": {
+    #         "Projetos": [
+    #             st.Page("projetos_home_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
+    #             st.Page("projetos_lista.py", title="Projetos", icon=":material/list:"),
+    #             st.Page("mapa.py", title="Mapa", icon=":material/map:"),
+    #             st.Page("projeto_novo.py", title="Novo projeto", icon=":material/add_circle:"),
+    #         ],
+    #         "Ciclos de investimento": [
+    #             st.Page("ciclos_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
+    #             st.Page("ciclos_gerenciar.py", title="Gerenciar", icon=":material/settings:"),
+    #             # st.Page("nova_chamada.py", title="Cadastrar chamada", icon=":material/campaign:"),
+    #             # st.Page("nova_chamada.py", title="Cadastrar chamada", icon=":material/campaign:"),
 
-            ],
-            "Organizações": [
-                st.Page("organizacoes_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
-                st.Page("organizacao_nova.py", title="Nova organização", icon=":material/add_business:"),
-            ],
-            "Pessoas": [
-                st.Page("pessoas_equipe.py", title="Equipe", icon=":material/badge:"),
-                st.Page("pessoas_beneficiarios.py", title="Beneficiários", icon=":material/group:"),
-                st.Page("pessoas_visitantes.py", title="Visitantes", icon=":material/visibility:"),
-                st.Page("pessoas_cadastrar.py", title="Convidar pessoas", icon=":material/person_add:"),
-                st.Page("pessoas_convites.py", title="Convites pendentes", icon=":material/mail:"),
-            ],
-        },
+    #         ],
+    #         "Organizações": [
+    #             st.Page("organizacoes_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
+    #             st.Page("organizacao_nova.py", title="Nova organização", icon=":material/add_business:"),
+    #         ],
+    #         "Pessoas": [
+    #             st.Page("pessoas_equipe.py", title="Equipe", icon=":material/badge:"),
+    #             st.Page("pessoas_beneficiarios.py", title="Beneficiários", icon=":material/group:"),
+    #             st.Page("pessoas_visitantes.py", title="Visitantes", icon=":material/visibility:"),
+    #             st.Page("pessoas_cadastrar.py", title="Convidar pessoas", icon=":material/person_add:"),
+    #             st.Page("pessoas_convites.py", title="Convites pendentes", icon=":material/mail:"),
+    #         ],
+    #     },
 
-        "ver_projeto": [
-            st.Page("projeto_visao_geral.py", title="Visão geral", icon=":material/home:"),
-            st.Page("projeto_atividades.py", title="Atividades", icon=":material/assignment:"),
-            st.Page("projeto_financeiro.py", title="Financeiro", icon=":material/payments:"),
-            st.Page("projeto_locais.py", title="Locais", icon=":material/map:"),
-            st.Page("projeto_relatorios.py", title="Relatórios", icon=":material/edit_note:"),
-            st.Page("projeto_fotos.py", title="Fotos", icon=":material/image:"),
-        ],
+    #     "ver_projeto": [
+    #         st.Page("projeto_visao_geral.py", title="Visão geral", icon=":material/home:"),
+    #         st.Page("projeto_atividades.py", title="Atividades", icon=":material/assignment:"),
+    #         st.Page("projeto_financeiro.py", title="Financeiro", icon=":material/payments:"),
+    #         st.Page("projeto_locais.py", title="Locais", icon=":material/map:"),
+    #         st.Page("projeto_relatorios.py", title="Relatórios", icon=":material/edit_note:"),
+    #         st.Page("projeto_fotos.py", title="Fotos", icon=":material/image:"),
+    #     ],
 
 
-        "ben_selec_projeto": [
-                st.Page("ben_selec_projeto.py", title="Selecione o projeto", icon=":material/assignment:"),
-            ],
+    #     "ben_selec_projeto": [
+    #             st.Page("ben_selec_projeto.py", title="Selecione o projeto", icon=":material/assignment:"),
+    #         ],
        
 
-        "visitante": {
-            "PROJETOS": [
-                st.Page("projetos_home_visao_geral.py", title="Projetos", icon=":material/assignment:"),
-                st.Page("mapa.py", title="Mapa", icon=":material/map:"),
-            ],
-        },
-    }
+    #     "visitante": {
+    #         "PROJETOS": [
+    #             st.Page("projetos_home_visao_geral.py", title="Projetos", icon=":material/assignment:"),
+    #             st.Page("mapa.py", title="Mapa", icon=":material/map:"),
+    #         ],
+    #     },
+    # }
 
 
 
-    # Inicializa variáveis de controle no session_state ----------------------
-    # Inicializa a página atual se não existir
-    if "pagina_atual" not in st.session_state:
-        st.session_state.pagina_atual = None
+    # # Inicializa variáveis de controle no session_state ----------------------
+    # # Inicializa a página atual se não existir
+    # if "pagina_atual" not in st.session_state:
+    #     st.session_state.pagina_atual = None
 
-    # Inicializa a projeto atual se não existir
-    if "projeto_atual" not in st.session_state:
-        st.session_state.projeto_atual = None
-    # ----------------------------------------------------------------------
+    # # Inicializa a projeto atual se não existir
+    # if "projeto_atual" not in st.session_state:
+    #     st.session_state.projeto_atual = None
+    # # ----------------------------------------------------------------------
 
 
 
-# ????????????????
-    # st.write(st.session_state)
 
     # Garante que tipo_usuario existe
     # tipo_usuario = set(st.session_state.get("tipo_usuario", []))
     tipo_usuario = st.session_state.get("tipo_usuario", "")
 
 
-    # ROTEAMENTO DO ADMIN ---------------------------------
-    if tipo_usuario == "admin":
+    # # ROTEAMENTO DO ADMIN ---------------------------------
+    # if tipo_usuario == "admin":
         
-        # Página inicial do admin 
+    #     # Página inicial do admin 
 
-        # Primeira execução: 
-        # se pagina_atual == None, a pagina atual será home_admin
-        if st.session_state.pagina_atual is None:
-            st.session_state.pagina_atual = "home_admin"
+    #     # Primeira execução: 
+    #     # se pagina_atual == None, a pagina atual será home_admin
+    #     if st.session_state.pagina_atual is None:
+    #         st.session_state.pagina_atual = "home_admin"
 
-        # Demais execuções
-        # Home do admin
-        if st.session_state.pagina_atual == "home_admin":
-            pages = pags_por_tipo["home_admin"]
+    #     # Demais execuções
+    #     # Home do admin
+    #     if st.session_state.pagina_atual == "home_admin":
+    #         pages = pags_por_tipo["home_admin"]
 
-        # Admin visita projetos
-        elif st.session_state.pagina_atual == "ver_projeto":
-            pages = pags_por_tipo["ver_projeto"]
-
-
+    #     # Admin visita projetos
+    #     elif st.session_state.pagina_atual == "ver_projeto":
+    #         pages = pags_por_tipo["ver_projeto"]
 
 
-    # ROTEAMENTO DA EQUIPE ---------------------------------
-    elif tipo_usuario == "equipe":
+
+
+    # # ROTEAMENTO DA EQUIPE ---------------------------------
+    # elif tipo_usuario == "equipe":
         
-        # Primeira execução: 
-        # se pagina_atual == None, a pagina atual será home_equipe
-        if st.session_state.pagina_atual is None:
-            st.session_state.pagina_atual = "home_equipe"
+    #     # Primeira execução: 
+    #     # se pagina_atual == None, a pagina atual será home_equipe
+    #     if st.session_state.pagina_atual is None:
+    #         st.session_state.pagina_atual = "home_equipe"
 
-        # Demais execuções
-        # Home da equipe
-        if st.session_state.pagina_atual == "home_equipe":
-            pages = pags_por_tipo["home_equipe"]
+    #     # Demais execuções
+    #     # Home da equipe
+    #     if st.session_state.pagina_atual == "home_equipe":
+    #         pages = pags_por_tipo["home_equipe"]
 
-        # Equipe visita projetos
-        elif st.session_state.pagina_atual == "ver_projeto":
-            pages = pags_por_tipo["ver_projeto"]
-
-
-
-    # ROTEAMENTO DO BENEFICIÁRIO ---------------------------------
-    elif tipo_usuario == "beneficiario":
-
-        projetos_raw = st.session_state.get("projetos")
-        projetos = projetos_raw if isinstance(projetos_raw, list) else []
-
-        # Primeira execução:
-        if st.session_state.pagina_atual is None:
-
-            # Verifica quantos projetos o beneficiário tem
-            if len(projetos) == 1:
-                st.session_state.pagina_atual = "ver_projeto"
-            else:
-                st.session_state.pagina_atual = "ben_selec_projeto"
-
-        # Demais execuções
-        if st.session_state.pagina_atual == "ver_projeto":
-
-            if not st.session_state.get("projeto_atual") and len(projetos) >= 1:
-                st.session_state.projeto_atual = projetos[0]
-
-            pages = pags_por_tipo["ver_projeto"]
-
-        elif st.session_state.pagina_atual == "ben_selec_projeto":
-            pages = pags_por_tipo["ben_selec_projeto"]
-
-
-
-    # ROTEAMENTO DO VISITANTE ---------------------------------
-    elif tipo_usuario == "visitante":
-
-        projetos_raw = st.session_state.get("projetos")
-        projetos = projetos_raw if isinstance(projetos_raw, list) else []
-
-        # Primeira execução:
-        if st.session_state.pagina_atual is None:
-
-            # Verifica quantos projetos o visitante tem
-            if len(projetos) == 1:
-                st.session_state.pagina_atual = "ver_projeto"
-            else:
-                st.session_state.pagina_atual = "ben_selec_projeto"
-
-        # Demais execuções
-        if st.session_state.pagina_atual == "ver_projeto":
-
-            if not st.session_state.get("projeto_atual") and len(projetos) >= 1:
-                st.session_state.projeto_atual = projetos[0]
-
-            pages = pags_por_tipo["ver_projeto"]
-
-        elif st.session_state.pagina_atual == "ben_selec_projeto":
-            pages = pags_por_tipo["ben_selec_projeto"]
-
-
-
-
-
+    #     # Equipe visita projetos
+    #     elif st.session_state.pagina_atual == "ver_projeto":
+    #         pages = pags_por_tipo["ver_projeto"]
 
 
 
     # # ROTEAMENTO DO BENEFICIÁRIO ---------------------------------
     # elif tipo_usuario == "beneficiario":
 
-    #     projetos = st.session_state.get("projetos", [])
+    #     projetos_raw = st.session_state.get("projetos")
+    #     projetos = projetos_raw if isinstance(projetos_raw, list) else []
 
-    #     # Primeira execução: 
-    #     # se pagina_atual == None, a pagina atual dependerá se o beneficiário tem mais de um projeto
+    #     # Primeira execução:
     #     if st.session_state.pagina_atual is None:
 
-            
     #         # Verifica quantos projetos o beneficiário tem
-            
     #         if len(projetos) == 1:
     #             st.session_state.pagina_atual = "ver_projeto"
-
     #         else:
     #             st.session_state.pagina_atual = "ben_selec_projeto"
 
-
     #     # Demais execuções
-    #     # Beneficiário tem apenas um projeto
-
     #     if st.session_state.pagina_atual == "ver_projeto":
-    #         # Só define o projeto atual se ainda não tiver sido escolhido
-    #         if not st.session_state.get("projeto_atual"):
+
+    #         if not st.session_state.get("projeto_atual") and len(projetos) >= 1:
     #             st.session_state.projeto_atual = projetos[0]
 
     #         pages = pags_por_tipo["ver_projeto"]
 
-
-    #     # Beneficiário tem mais de um projeto
     #     elif st.session_state.pagina_atual == "ben_selec_projeto":
     #         pages = pags_por_tipo["ben_selec_projeto"]
-
-
-
 
 
 
     # # ROTEAMENTO DO VISITANTE ---------------------------------
     # elif tipo_usuario == "visitante":
 
-    #     projetos = st.session_state.get("projetos", [])
+    #     projetos_raw = st.session_state.get("projetos")
+    #     projetos = projetos_raw if isinstance(projetos_raw, list) else []
 
-    #     # Primeira execução: 
-    #     # se pagina_atual == None, a pagina atual dependerá se o visitante tem mais de um projeto
+    #     # Primeira execução:
     #     if st.session_state.pagina_atual is None:
 
-            
     #         # Verifica quantos projetos o visitante tem
-            
     #         if len(projetos) == 1:
     #             st.session_state.pagina_atual = "ver_projeto"
-
     #         else:
     #             st.session_state.pagina_atual = "ben_selec_projeto"
 
-
     #     # Demais execuções
-    #     # visitante tem apenas um projeto
-
     #     if st.session_state.pagina_atual == "ver_projeto":
-    #         # Só define o projeto atual se ainda não tiver sido escolhido
-    #         if not st.session_state.get("projeto_atual"):
+
+    #         if not st.session_state.get("projeto_atual") and len(projetos) >= 1:
     #             st.session_state.projeto_atual = projetos[0]
 
     #         pages = pags_por_tipo["ver_projeto"]
 
-
-    #     # visitante tem mais de um projeto
     #     elif st.session_state.pagina_atual == "ben_selec_projeto":
     #         pages = pags_por_tipo["ben_selec_projeto"]
 
 
 
 
-    # Cria e executa a navegação
-    pg = st.navigation(pages)
-    pg.run()
+    # # Cria e executa a navegação
+    # pg = st.navigation(pages)
+    # pg.run()
 
