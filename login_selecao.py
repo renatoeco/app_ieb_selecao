@@ -406,13 +406,13 @@ else:
     #             st.Page("mapa.py", title="Mapa", icon=":material/map:"),
     #             st.Page("projeto_novo.py", title="Novo projeto", icon=":material/add_circle:"),
     #         ],
-    #         "Ciclos de investimento": [
-    #             st.Page("ciclos_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
-    #             st.Page("ciclos_gerenciar.py", title="Gerenciar", icon=":material/settings:"),
+            "Editais": [
+                st.Page("editais_lista.py", title="Editais", icon=":material/analytics:"),
+                st.Page("editais_gerenciar.py", title="Gerenciar", icon=":material/settings:"),
     #             # st.Page("nova_chamada.py", title="Cadastrar chamada", icon=":material/campaign:"),
     #             # st.Page("nova_chamada.py", title="Cadastrar chamada", icon=":material/campaign:"),
 
-    #         ],
+            ],
     #         "Organizações": [
     #             st.Page("organizacoes_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
     #             st.Page("organizacao_nova.py", title="Nova organização", icon=":material/add_business:"),

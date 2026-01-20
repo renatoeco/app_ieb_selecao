@@ -1,5 +1,5 @@
 import streamlit as st
-from funcoes_auxiliares import conectar_mongo_cepf_gestao  # Função personalizada para conectar ao MongoDB
+from funcoes_auxiliares import conectar_mongo_ieb_selecao  # Função personalizada para conectar ao MongoDB
 import pandas as pd
 from bson import ObjectId
 import time
@@ -9,7 +9,7 @@ import time
 ###########################################################################################################
 
 # Conecta-se ao banco de dados MongoDB (usa cache automático para melhorar performance)
-db = conectar_mongo_cepf_gestao()
+db = conectar_mongo_ieb_selecao()
 
 # Importa coleções e cria dataframes
 
