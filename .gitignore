@@ -1,2 +1,2 @@
 env_ieb_selecao
-secrets.toml
+.streamlit/secrets.toml
