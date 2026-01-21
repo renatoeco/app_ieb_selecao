@@ -1,5 +1,6 @@
 import streamlit as st
-from funcoes_auxiliares import conectar_mongo_cepf_gestao  # Função personalizada para conectar ao MongoDB
+from funcoes_auxiliares import conectar_mongo_ieb_selecao
+
 import pandas as pd
 from bson import ObjectId
 import time
@@ -9,7 +10,7 @@ import time
 ###########################################################################################################
 
 # Conecta-se ao banco de dados MongoDB (usa cache automático para melhorar performance)
-db = conectar_mongo_cepf_gestao()
+db = conectar_mongo_ieb_selecao()
 
 # Importa coleções e cria dataframes
 
@@ -18,18 +19,18 @@ col_pessoas = db["pessoas"]
 
 
 # Projetos
-col_projetos = db["projetos"]
+# col_projetos = db["projetos"]
 
 
 ###########################################################################################################
 # TRATAMENTO DOS DADOS
 ###########################################################################################################
 
-# PROJETOS
+# # PROJETOS
 
-df_projetos = pd.DataFrame(list(col_projetos.find()))
-# Converte objectId para string
-df_projetos['_id'] = df_projetos['_id'].astype(str)
+# df_projetos = pd.DataFrame(list(col_projetos.find()))
+# # Converte objectId para string
+# df_projetos['_id'] = df_projetos['_id'].astype(str)
 
 
 # PESSOAS
@@ -41,39 +42,15 @@ df_pessoas = pd.DataFrame(list(col_pessoas.find({}, {"senha": 0})))
 df_pendentes = df_pessoas[df_pessoas["status"] == "convidado"]
 
 
-# # 1) Busca todos os documentos, incluindo a senha
-# df_pendentes = pd.DataFrame(list(col_pessoas.find({})))
-
-# # 2) Filtra apenas os registros pendentes (senha vazia ou None)
-# df_pendentes = df_pendentes[df_pendentes["senha"].isna() | (df_pendentes["senha"] == "")]
-
-# # 3) Remove a coluna 'senha' do dataframe final
-# df_pendentes = df_pendentes.drop(columns=["senha"])
-
-# ??????????????????/
-# # Cria uma cópia para exibição
-# df_pendentes_display = df_pendentes.copy()
-# # Transforma a coluna 'projetos' em string (listas viram texto)
-# if "projetos" in df_pendentes_display.columns:
-#     df_pendentes_display["projetos"] = df_pendentes_display["projetos"].apply(
-#         lambda x: ", ".join(x) if isinstance(x, list) else ""
-#     )
-# # Agora pode exibir sem erro
-# st.dataframe(df_pendentes_display)
-# # Converte ObjectId para string
-# df_pendentes["_id"] = df_pendentes["_id"].astype(str)
-
-
-
 # Renomeia as colunas
 df_pendentes = df_pendentes.rename(columns={
     "nome_completo": "Nome",
     "tipo_usuario": "Tipo de usuário",
-    "tipo_beneficiario": "Tipo de beneficiário",
+    # "tipo_beneficiario": "Tipo de beneficiário",
     "e_mail": "E-mail",
     "telefone": "Telefone",
     "status": "Status",
-    "projetos": "Projetos",
+    # "projetos": "Projetos",
     "data_convite": "Data do convite"
 })
 
@@ -110,35 +87,10 @@ def editar_pessoa(_id: str):
 
     tipo_usuario = st.selectbox(
         "Tipo de usuário",
-        options=["admin", "equipe", "beneficiario", "visitante"],
-        index=["admin", "equipe", "beneficiario", "visitante"].index(tipo_usuario_default)
-        if tipo_usuario_default in ["admin", "equipe", "beneficiario", "visitante"]
+        options=["admin", "equipe", "avaliador", "visitante"],
+        index=["admin", "equipe", "avaliador", "visitante"].index(tipo_usuario_default)
+        if tipo_usuario_default in ["admin", "equipe", "avaliador", "visitante"]
         else 0
-    )
-
-    # Tipo de beneficiário — só aparece se tipo_usuario == beneficiario
-    tipo_beneficiario = None
-    if tipo_usuario == "beneficiario":
-        tipo_beneficiario = st.selectbox(
-            "Tipo de beneficiário",
-            options=["técnico", "financeiro"],
-            index=["técnico", "financeiro"].index(pessoa.get("tipo_beneficiario", "técnico"))
-            if pessoa.get("tipo_beneficiario") in ["técnico", "financeiro"]
-            else 0
-        )
-
-    # # Status
-    # status = st.selectbox(
-    #     "Status",
-    #     options=["ativo", "inativo"],
-    #     index=0 if pessoa.get("status", "ativo") == "ativo" else 1
-    # )
-
-    # Projetos
-    projetos = st.multiselect(
-        "Projetos",
-        options=df_projetos["codigo"].tolist(),
-        default=pessoa.get("projetos", []),
     )
 
     st.write("")
@@ -152,20 +104,14 @@ def editar_pessoa(_id: str):
             "telefone": telefone,
             "tipo_usuario": tipo_usuario,
             # "status": status,
-            "projetos": projetos
+            # "projetos": projetos
         }
 
-        # Adiciona tipo_beneficiario apenas se aplicável
-        if tipo_beneficiario:
-            update_data["tipo_beneficiario"] = tipo_beneficiario
-        else:
-            # Remove o campo se existir no documento anterior
-            col_pessoas.update_one({"_id": ObjectId(_id)}, {"$unset": {"tipo_beneficiario": ""}})
 
         # Atualiza o registro
         col_pessoas.update_one({"_id": ObjectId(_id)}, {"$set": update_data})
 
-        st.success("Pessoa atualizada com sucesso!")
+        st.success("Pessoa atualizada com sucesso!", icon=":material/check:")
         time.sleep(2)
         st.rerun()
 
@@ -179,7 +125,7 @@ def editar_pessoa(_id: str):
 
 
 # Logo do sidebar
-st.logo("images/cepf_logo.png", size='large')
+st.logo("images/logo_ieb.svg", size='large')
 
 st.header('Convites pendentes')
 

@@ -16,6 +16,8 @@ db = conectar_mongo_ieb_selecao()
 # Pessoas
 col_pessoas = db["pessoas"]
 
+# Projetos
+col_projetos = db["projetos"]
 
 
 ###########################################################################################################
@@ -32,21 +34,18 @@ df_pessoas["_id"] = df_pessoas["_id"].astype(str)
 df_pessoas = df_pessoas.rename(columns={
     "nome_completo": "Nome",
     "tipo_usuario": "Tipo de usuário",
-    "tipo_beneficiario": "Tipo de beneficiário",
     "e_mail": "E-mail",
     "telefone": "Telefone",
     "status": "Status",
-    "projetos": "Projetos"
 })
 
 # Ordena por Nome
 df_pessoas = df_pessoas.sort_values(by="Nome")
 
-# Projetos
-col_projetos = db["projetos"]
-df_projetos = pd.DataFrame(list(col_projetos.find()))
-# Converte objectId para string
-df_projetos['_id'] = df_projetos['_id'].astype(str)
+# # Projetos
+# df_projetos = pd.DataFrame(list(col_projetos.find()))
+# # Converte objectId para string
+# df_projetos['_id'] = df_projetos['_id'].astype(str)
 
 
 
@@ -78,22 +77,12 @@ def editar_pessoa(_id: str):
 
     tipo_usuario = st.selectbox(
         "Tipo de usuário",
-        options=["admin", "equipe", "beneficiario", "visitante"],
-        index=["admin", "equipe", "beneficiario", "visitante"].index(tipo_usuario_default)
-        if tipo_usuario_default in ["admin", "equipe", "beneficiario", "visitante"]
+        options=["admin", "equipe", "avaliador", "visitante"],
+        index=["admin", "equipe", "avaliador", "visitante"].index(tipo_usuario_default)
+        if tipo_usuario_default in ["admin", "equipe", "avaliador", "visitante"]
         else 0
     )
 
-    # Tipo de beneficiário — só aparece se tipo_usuario == beneficiario
-    tipo_beneficiario = None
-    if tipo_usuario == "beneficiario":
-        tipo_beneficiario = st.selectbox(
-            "Tipo de beneficiário",
-            options=["técnico", "financeiro"],
-            index=["técnico", "financeiro"].index(pessoa.get("tipo_beneficiario", "técnico"))
-            if pessoa.get("tipo_beneficiario") in ["técnico", "financeiro"]
-            else 0
-        )
 
     # Status
     status = st.selectbox(
@@ -102,12 +91,6 @@ def editar_pessoa(_id: str):
         index=0 if pessoa.get("status", "ativo") == "ativo" else 1
     )
 
-    # Projetos
-    projetos = st.multiselect(
-        "Projetos",
-        options=df_projetos["codigo"].tolist(),
-        default=pessoa.get("projetos", []),
-    )
 
     st.write("")
 
@@ -120,21 +103,14 @@ def editar_pessoa(_id: str):
             "telefone": telefone,
             "tipo_usuario": tipo_usuario,
             "status": status,
-            "projetos": projetos
         }
 
-        # Adiciona tipo_beneficiario apenas se aplicável
-        if tipo_beneficiario:
-            update_data["tipo_beneficiario"] = tipo_beneficiario
-        else:
-            # Remove o campo se existir no documento anterior
-            col_pessoas.update_one({"_id": ObjectId(_id)}, {"$unset": {"tipo_beneficiario": ""}})
 
         # Atualiza o registro
         col_pessoas.update_one({"_id": ObjectId(_id)}, {"$set": update_data})
 
-        st.success("Pessoa atualizada com sucesso!")
-        time.sleep(2)
+        st.success("Pessoa atualizada com sucesso!", icon=":material/check:")
+        time.sleep(3)
         st.rerun()
 
 
@@ -147,16 +123,16 @@ def editar_pessoa(_id: str):
 
 
 # Logo do sidebar
-st.logo("images/cepf_logo.png", size='large')
+st.logo("images/logo_ieb.svg", size='large')
 
-st.header('Beneficiários(as)')
+st.header('Avaliadores(as)')
 
 st.divider()
 
 
-# Separando só os beneficiários
+# Separando só os avaliadores
 df_benef = df_pessoas[
-    df_pessoas["Tipo de usuário"] == "beneficiario"
+    df_pessoas["Tipo de usuário"] == "avaliador"
 ]
 
 st.write('')
@@ -168,7 +144,7 @@ col1, col2, col3, col4, col5, col6, col7 = st.columns(dist_colunas)
 
 # Cabeçalho da lista
 col1.write('**Nome**')
-col2.write('**Projetos**')
+# col2.write('**Projetos**')
 col3.write('**E-mail**')
 col4.write('**Telefone**')
 col5.write('**Tipo de usuário**')
@@ -184,23 +160,6 @@ for _, row in df_benef.iterrows():
     # NOME -----------------
     col1.write(row["Nome"])
 
-    # PROJETOS -----------------
-
-    # Tratando a coluna projetos, que pode ter múltiplos valores------
-    projetos = row.get("Projetos", [])
-    # Garante que 'projetos' seja uma lista
-    if isinstance(projetos, str):
-        projetos = [projetos]
-    elif not isinstance(projetos, list):
-        projetos = []
-    # Exibe de forma amigável
-    if len(projetos) == 0:
-        col2.write("")
-    elif len(projetos) == 1:
-        col2.write(projetos[0])
-    else:
-        col2.write(", ".join(projetos))
-    
 
     # E-MAIL -----------------
 
@@ -212,23 +171,9 @@ for _, row in df_benef.iterrows():
 
     # TIPO DE USUÁRIO -----------------
     tipo_usuario = row.get("Tipo de usuário", "").strip()
-    tipo_beneficiario = row.get("Tipo de beneficiário", "").strip() if "Tipo de beneficiário" in row else ""
-
-    # Se for beneficiário, concatena o tipo_beneficiario
-    if tipo_usuario.lower() == "beneficiario" and tipo_beneficiario:
-        tipo_exibido = f"{tipo_usuario} ({tipo_beneficiario})"
-    else:
-        tipo_exibido = tipo_usuario
-
-    col5.write(tipo_exibido)
 
 
-
-    # # TIPO DE USUÁRIO -----------------
-    # tipo_usuario = str(row.get("Tipo de usuário", "")).strip()
-
-    # # Exibição
-    # col5.write(tipo_usuario)
+    col5.write(tipo_usuario)
 
 
     # STATUS -----------------       
