@@ -24,7 +24,6 @@ db = conectar_mongo_ieb_selecao()
 col_pessoas = db["pessoas"]
 
 
-
 ##############################################################################################################
 # FUNÇÕES AUXILIARES
 ##############################################################################################################
@@ -182,6 +181,7 @@ def recuperar_senha_dialog():
             if st.form_submit_button("Enviar código de verificação", icon=":material/mail:"):
                 if email:
                     nome, verificar_colaboradores = encontrar_usuario_por_email(col_pessoas, email)
+                   
                     if verificar_colaboradores:
 
                         if verificar_colaboradores.get("status", "").lower() != "ativo":
@@ -523,22 +523,22 @@ else:
 
 
 
-    # # ROTEAMENTO DA EQUIPE ---------------------------------
-    # elif tipo_usuario == "equipe":
+    # ROTEAMENTO DA EQUIPE ---------------------------------
+    elif tipo_usuario == "equipe":
         
-    #     # Primeira execução: 
-    #     # se pagina_atual == None, a pagina atual será home_equipe
-    #     if st.session_state.pagina_atual is None:
-    #         st.session_state.pagina_atual = "home_equipe"
+        # Primeira execução: 
+        # se pagina_atual == None, a pagina atual será home_equipe
+        if st.session_state.pagina_atual is None:
+            st.session_state.pagina_atual = "home_equipe"
 
-    #     # Demais execuções
-    #     # Home da equipe
-    #     if st.session_state.pagina_atual == "home_equipe":
-    #         pages = pags_por_tipo["home_equipe"]
+        # Demais execuções
+        # Home da equipe
+        if st.session_state.pagina_atual == "home_equipe":
+            pages = pags_por_tipo["home_equipe"]
 
-    #     # Equipe visita projetos
-    #     elif st.session_state.pagina_atual == "ver_projeto":
-    #         pages = pags_por_tipo["ver_projeto"]
+        # Equipe visita projetos
+        elif st.session_state.pagina_atual == "ver_projeto":
+            pages = pags_por_tipo["ver_projeto"]
 
 
 

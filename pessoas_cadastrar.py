@@ -50,13 +50,13 @@ def enviar_email_convite(nome_completo, email_destino, codigo):
         msg = MIMEMultipart()
         msg['From'] = endereco_email
         msg['To'] = email_destino
-        msg['Subject'] = "Convite para a Plataforma CEPF"
+        msg['Subject'] = "Convite para a Plataforma de Seleção de Projetos do IEB"
 
         corpo_html = f"""
         <p>Olá {nome_completo},</p>
-        <p>Você foi convidado para utilizar a <strong>Plataforma de Gestão de Projetos do CEPF</strong>.</p>
+        <p>Você foi convidado para participar de um processo seletivo na <strong>Plataforma de Seleção de Projetos do IEB</strong>.</p>
         <p>Para realizar seu cadastro, acesse o link abaixo e clique no botão <strong>"Primeiro acesso"</strong>:</p>
-        <p><a href="https://cepf-ieb.streamlit.app/">Acesse aqui a Plataforma</a></p>
+        <p><a href="https://ieb-selecao.streamlit.app/">Acesse aqui a Plataforma</a></p>
         <p>Insira o seu <strong>e-mail</strong> e o <strong>código</strong> que te enviamos abaixo:</p>
         <h2>{codigo}</h2>
         <p>Se tiver alguma dúvida, entre em contato com a equipe do CEPF.</p>

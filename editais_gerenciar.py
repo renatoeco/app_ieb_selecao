@@ -1,7 +1,10 @@
 import streamlit as st
+import pandas as pd
 import time
 from datetime import datetime, date
 from funcoes_auxiliares import conectar_mongo_ieb_selecao
+from streamlit_sortables import sort_items
+
 
 # Conectar google driva
 from googleapiclient.discovery import build
@@ -56,11 +59,23 @@ def ler_planilha_google_sheets(id_planilha):
 
 
 
-def carregar_projetos(df_recebidos_sheet, colecao_projetos):
+
+def carregar_projetos(df_recebidos_sheet, colecao_projetos, codigo_edital):
     """
-    Para cada codigo_recebimento, cria um documento
-    na coleção projetos caso não exista
+    Carrega projetos a partir do dataframe.
+    Retorna lista de códigos que foram adicionados.
     """
+
+    # Busca projetos já existentes desse edital
+    existentes = {
+        p["codigo_recebimento"]
+        for p in colecao_projetos.find(
+            {"codigo_edital": codigo_edital},
+            {"codigo_recebimento": 1}
+        )
+    }
+
+    adicionados = []
 
     for _, linha in df_recebidos_sheet.iterrows():
 
@@ -69,13 +84,19 @@ def carregar_projetos(df_recebidos_sheet, colecao_projetos):
         if not codigo:
             continue
 
-        colecao_projetos.update_one(
-            {"codigo_recebimento": codigo},
-            {"$setOnInsert": {
-                "codigo_recebimento": codigo
-            }},
-            upsert=True
-        )
+        # Se já existe, ignora
+        if codigo in existentes:
+            continue
+
+        # Insere novo projeto
+        colecao_projetos.insert_one({
+            "codigo_recebimento": codigo,
+            "codigo_edital": codigo_edital
+        })
+
+        adicionados.append(codigo)
+
+    return adicionados
 
 
 
@@ -193,7 +214,8 @@ with tabs[0]:
 
             codigo_edital_edit = st.text_input(
                 "Código do Edital",
-                value=edital_selecionado["codigo_edital"]
+                value=edital_selecionado["codigo_edital"],
+                disabled=True
             )
 
             nome_edital_edit = st.text_input(
@@ -239,17 +261,500 @@ with tabs[0]:
                     time.sleep(3)
                     st.rerun()
 
+
+
 ###########################################################################################################
 # ABA ESTÁGIOS
 ###########################################################################################################
+
 with tabs[1]:
-    st.caption("Conteúdo da aba Estágios")
+
+    if edital_selecionado_label == "":
+        st.caption("Selecione um edital para gerenciar os estágios.")
+    else:
+        codigo_edital = edital_selecionado_label.split(" - ")[0]
+        edital = colecao_editais.find_one({"codigo_edital": codigo_edital})
+
+        estagios = sorted(
+            edital.get("estagios", []),
+            key=lambda x: x.get("ordem_estagio", 999)
+        )
+
+        ###################################################################################################
+        # POPOVER PARA CRIAR NOVO ESTÁGIO
+        ###################################################################################################
+
+        with st.popover("Novo estágio", icon=":material/add:"):
+            nome_estagio = st.text_input("Nome do estágio")
+            ordem_estagio = st.number_input(
+                "Ordem do estágio",
+                min_value=1,
+                value=len(estagios) + 1,
+                step=1
+            )
+
+            if st.button("Criar estágio", type="primary", icon=":material/save:"):
+                if not nome_estagio.strip():
+                    st.error("O nome do estágio é obrigatório.")
+                elif ordem_estagio in [e["ordem_estagio"] for e in estagios]:
+                    st.error("Já existe um estágio com essa ordem.")
+                else:
+                    colecao_editais.update_one(
+                        {"_id": edital["_id"]},
+                        {"$push": {
+                            "estagios": {
+                                "nome_estagio": nome_estagio.strip(),
+                                "ordem_estagio": ordem_estagio,
+                                "perguntas_estagio": []
+                            }
+                        }}
+                    )
+                    st.success("Estágio criado com sucesso.", icon=":material/check:")
+                    time.sleep(3)
+                    st.rerun()
+
+        st.write("")
+
+
+        ###########################################################################################################
+        # LISTAGEM DOS ESTÁGIOS 
+        ###########################################################################################################
+
+        if not estagios:
+            st.caption("Nenhum estágio cadastrado.")
+        else:
+            for estagio in estagios:
+
+                perguntas = sorted(
+                    estagio.get("perguntas_estagio", []),
+                    key=lambda x: x.get("ordem", 9999)
+                )
+
+                titulo_expander = (
+                    f"{str(estagio['ordem_estagio'])} - "
+                    f"{estagio['nome_estagio']} "
+                    f"({str(len(perguntas))} perguntas)"
+                )
+
+                with st.expander(titulo_expander, expanded=False):
+
+                    ###################################################################################################
+                    # SEGMENTED CONTROL DE AÇÕES 
+                    ###################################################################################################
+
+                    key_acao = f"acao_{codigo_edital}_{estagio['ordem_estagio']}"
+
+                    if key_acao not in st.session_state:
+                        st.session_state[key_acao] = "Ver perguntas"
+
+                    acao = st.segmented_control(
+                        "",
+                        [
+                            "Ver perguntas",
+                            "Nova pergunta",
+                            "Editar pergunta",
+                            "Reordenar pergunta",
+                            "Editar estágio"
+                        ],
+                        key=key_acao
+                    )
+
+
+
+                    ###################################################################################################
+                    # SE NENHUMA AÇÃO SELECIONADA → MOSTRA PERGUNTAS
+                    ###################################################################################################
+
+                    if acao == "Ver perguntas":
+
+                        if not perguntas:
+                            st.caption("Nenhuma pergunta cadastrada.")
+                        else:
+                            for p in perguntas:
+
+                                tipo_legivel = {
+                                    "texto_curto": "resposta curta",
+                                    "texto_longo": "resposta longa",
+                                    "numero": "número",
+                                    "multipla_escolha": "múltipla escolha",
+                                    "escolha_unica": "escolha única",
+                                    "titulo": "título",
+                                    "subtitulo": "subtítulo",
+                                    "paragrafo": "parágrafo"
+                                }.get(p["tipo"], p["tipo"])
+
+                                # Renderização conforme tipo
+                                if p["tipo"] == "titulo":
+                                    st.markdown(f"### {p['pergunta']} *( {tipo_legivel} )*")
+                                elif p["tipo"] == "subtitulo":
+                                    st.markdown(f"#### {p['pergunta']} *( {tipo_legivel} )*")
+                                else:
+                                    st.write(
+                                        f"{str(p['ordem'])}. **{p['pergunta']}** "
+                                        f"*( {tipo_legivel} )*"
+                                    )
+
+                    ###################################################################################################
+                    # EDITAR ESTÁGIO
+                    ###################################################################################################
+
+                    elif acao == "Editar estágio":
+
+                        base_key = f"{codigo_edital}_{estagio['ordem_estagio']}_estagio"
+
+                        novo_nome = st.text_input(
+                            "Nome do estágio",
+                            value=estagio["nome_estagio"],
+                            key=f"{base_key}_nome"
+                        )
+
+                        nova_ordem = st.number_input(
+                            "Ordem do estágio",
+                            min_value=1,
+                            value=estagio["ordem_estagio"],
+                            step=1,
+                            key=f"{base_key}_ordem"
+                        )
+
+                        if st.button(
+                            "Salvar estágio",
+                            type="primary",
+                            icon=":material/save:",
+                            key=f"{base_key}_salvar"
+                        ):
+                            ordens_existentes = [
+                                e["ordem_estagio"] for e in estagios
+                                if e["ordem_estagio"] != estagio["ordem_estagio"]
+                            ]
+
+                            if nova_ordem in ordens_existentes:
+                                st.error("Já existe um estágio com essa ordem.")
+                            elif not novo_nome.strip():
+                                st.error("O nome do estágio é obrigatório.")
+                            else:
+                                colecao_editais.update_one(
+                                    {"_id": edital["_id"]},
+                                    {"$set": {
+                                        "estagios.$[e].nome_estagio": novo_nome.strip(),
+                                        "estagios.$[e].ordem_estagio": nova_ordem
+                                    }},
+                                    array_filters=[
+                                        {"e.ordem_estagio": estagio["ordem_estagio"]}
+                                    ]
+                                )
+
+                                st.success(
+                                    "Estágio atualizado com sucesso.",
+                                    icon=":material/check:"
+                                )
+                                time.sleep(3)
+                                st.rerun()
+
+                    ###################################################################################################
+                    # NOVA PERGUNTA
+                    ###################################################################################################
+
+                    elif acao == "Nova pergunta":
+
+                        base_key = f"{codigo_edital}_{estagio['ordem_estagio']}_nova"
+
+                        texto = st.text_input(
+                            "Texto da pergunta",
+                            key=f"{base_key}_texto"
+                        )
+
+                        tipo = st.selectbox(
+                            "Tipo",
+                            [
+                                "texto_curto", "texto_longo", "numero",
+                                "multipla_escolha", "escolha_unica",
+                                "titulo", "subtitulo", "paragrafo"
+                            ],
+                            key=f"{base_key}_tipo"
+                        )
+
+                        opcoes = []
+                        if tipo in ["multipla_escolha", "escolha_unica"]:
+                            opcoes = st.text_area(
+                                "Opções (uma por linha)",
+                                key=f"{base_key}_opcoes"
+                            ).split("\n")
+
+                        if st.button(
+                            "Salvar pergunta",
+                            type="primary",
+                            icon=":material/save:",
+                            key=f"{base_key}_salvar"
+                        ):
+                            if not texto.strip():
+                                st.error("O texto é obrigatório.")
+                            elif tipo in ["multipla_escolha", "escolha_unica"] and not any(o.strip() for o in opcoes):
+                                st.error("Informe pelo menos uma opção.")
+                            else:
+                                nova = {
+                                    "ordem": len(perguntas) + 1,
+                                    "tipo": tipo,
+                                    "pergunta": texto.strip()
+                                }
+
+                                if tipo in ["multipla_escolha", "escolha_unica"]:
+                                    nova["opcoes"] = [o.strip() for o in opcoes if o.strip()]
+
+                                colecao_editais.update_one(
+                                    {"_id": edital["_id"]},
+                                    {"$push": {
+                                        "estagios.$[e].perguntas_estagio": nova
+                                    }},
+                                    array_filters=[
+                                        {"e.ordem_estagio": estagio["ordem_estagio"]}
+                                    ]
+                                )
+
+                                st.success(
+                                    "Pergunta criada com sucesso.",
+                                    icon=":material/check:"
+                                )
+                                time.sleep(3)
+                                st.rerun()
+
+
+                    ###################################################################################################
+                    # EDITAR PERGUNTA
+                    ###################################################################################################
+
+                    elif acao == "Editar pergunta":
+
+                        if not perguntas:
+                            st.caption("Nenhuma pergunta cadastrada.")
+                        else:
+                            # Mapa para seleção
+                            mapa_perguntas = {
+                                f"{str(p['ordem'])}. {p['pergunta']}": p
+                                for p in perguntas
+                            }
+
+                            selecionada = st.selectbox(
+                                "Selecione a pergunta",
+                                list(mapa_perguntas.keys()),
+                                key=f"{codigo_edital}_{estagio['ordem_estagio']}_pergunta_editar"
+                            )
+
+                            pergunta_atual = mapa_perguntas[selecionada]
+
+                            st.divider()
+
+                            # ------------------------------------------------------
+                            # TIPO ATUAL
+                            # ------------------------------------------------------
+
+                            mapa_tipo_inv = {
+                                "texto_curto": "Resposta curta",
+                                "texto_longo": "Resposta longa",
+                                "numero": "Número",
+                                "multipla_escolha": "Múltipla escolha",
+                                "escolha_unica": "Escolha única",
+                                "titulo": "Título",
+                                "subtitulo": "Subtítulo",
+                                "paragrafo": "Parágrafo"
+                            }
+
+                            tipo_legivel = mapa_tipo_inv.get(pergunta_atual["tipo"], pergunta_atual["tipo"])
+
+                            tipo = st.selectbox(
+                                "Tipo de pergunta",
+                                list(mapa_tipo_inv.values()),
+                                index=list(mapa_tipo_inv.values()).index(tipo_legivel),
+                                key=f"{codigo_edital}_{estagio['ordem_estagio']}_{pergunta_atual['ordem']}_tipo"
+                            )
+
+                            # ------------------------------------------------------
+                            # CAMPOS DINÂMICOS
+                            # ------------------------------------------------------
+
+                            mapa_tipo = {
+                                "Resposta curta": "texto_curto",
+                                "Resposta longa": "texto_longo",
+                                "Número": "numero",
+                                "Múltipla escolha": "multipla_escolha",
+                                "Escolha única": "escolha_unica",
+                                "Título": "titulo",
+                                "Subtítulo": "subtitulo",
+                                "Parágrafo": "paragrafo"
+                            }
+
+                            tipo_db = mapa_tipo[tipo]
+
+                            label_texto = "Texto da pergunta"
+                            if tipo_db == "titulo":
+                                label_texto = "Texto do título"
+                            elif tipo_db == "subtitulo":
+                                label_texto = "Texto do subtítulo"
+                            elif tipo_db == "paragrafo":
+                                label_texto = "Texto do parágrafo"
+
+                            if tipo_db == "paragrafo":
+                                texto = st.text_area(
+                                    label_texto,
+                                    value=pergunta_atual.get("pergunta", ""),
+                                    key=f"{codigo_edital}_{estagio['ordem_estagio']}_{pergunta_atual['ordem']}_texto_area"
+                                )
+                            else:
+                                texto = st.text_input(
+                                    label_texto,
+                                    value=pergunta_atual.get("pergunta", ""),
+                                    key=f"{codigo_edital}_{estagio['ordem_estagio']}_{pergunta_atual['ordem']}_texto"
+                                )
+
+                            opcoes = []
+                            if tipo_db in ["multipla_escolha", "escolha_unica"]:
+                                opcoes = st.text_area(
+                                    "Opções (uma por linha)",
+                                    value="\n".join(pergunta_atual.get("opcoes", [])),
+                                    key=f"{codigo_edital}_{estagio['ordem_estagio']}_{pergunta_atual['ordem']}_opcoes"
+                                ).split("\n")
+
+                            st.write("")
+
+                            # ------------------------------------------------------
+                            # BOTÕES DE AÇÃO
+                            # ------------------------------------------------------
+
+                            col_salvar, col_excluir = st.columns(2)
+
+                            # -------- SALVAR --------
+                            if col_salvar.button(
+                                "Salvar alterações",
+                                type="primary",
+                                icon=":material/save:",
+                                key=f"{codigo_edital}_{estagio['ordem_estagio']}_{pergunta_atual['ordem']}_salvar"
+                            ):
+                                if not texto.strip():
+                                    st.error("O texto não pode ficar vazio.")
+                                elif tipo_db in ["multipla_escolha", "escolha_unica"] and not any(o.strip() for o in opcoes):
+                                    st.error("Informe pelo menos uma opção.")
+                                else:
+                                    nova = {
+                                        "tipo": tipo_db,
+                                        "ordem": pergunta_atual["ordem"],
+                                        "pergunta": texto.strip()
+                                    }
+
+                                    if tipo_db in ["multipla_escolha", "escolha_unica"]:
+                                        nova["opcoes"] = [o.strip() for o in opcoes if o.strip()]
+
+                                    perguntas_atualizadas = [
+                                        nova if p == pergunta_atual else p
+                                        for p in perguntas
+                                    ]
+
+                                    colecao_editais.update_one(
+                                        {"_id": edital["_id"]},
+                                        {"$set": {
+                                            "estagios.$[e].perguntas_estagio": perguntas_atualizadas
+                                        }},
+                                        array_filters=[
+                                            {"e.ordem_estagio": estagio["ordem_estagio"]}
+                                        ]
+                                    )
+
+                                    st.success(
+                                        "Pergunta atualizada com sucesso.",
+                                        icon=":material/check:"
+                                    )
+                                    time.sleep(3)
+                                    st.rerun()
+
+                            # -------- EXCLUIR --------
+                            if col_excluir.button(
+                                "Excluir pergunta",
+                                icon=":material/delete:",
+                                key=f"{codigo_edital}_{estagio['ordem_estagio']}_{pergunta_atual['ordem']}_excluir"
+                            ):
+                                perguntas_filtradas = [
+                                    p for p in perguntas if p != pergunta_atual
+                                ]
+
+                                colecao_editais.update_one(
+                                    {"_id": edital["_id"]},
+                                    {"$set": {
+                                        "estagios.$[e].perguntas_estagio": perguntas_filtradas
+                                    }},
+                                    array_filters=[
+                                        {"e.ordem_estagio": estagio["ordem_estagio"]}
+                                    ]
+                                )
+
+                                st.success(
+                                    "Pergunta excluída com sucesso.",
+                                    icon=":material/check:"
+                                )
+                                time.sleep(3)
+                                st.rerun()
+
+
+
+
+                    ###################################################################################################
+                    # REORDENAR PERGUNTAS
+                    ###################################################################################################
+
+                    elif acao == "Reordenar pergunta":
+
+                        if not perguntas:
+                            st.caption("Nenhuma pergunta para reordenar.")
+                        else:
+                            nova_ordem = sort_items(
+                                items=[p["pergunta"] for p in perguntas],
+                                direction="vertical"
+                            )
+
+                            if st.button(
+                                "Salvar nova ordem",
+                                type="primary",
+                                icon=":material/save:",
+                                key=f"{codigo_edital}_{estagio['ordem_estagio']}_reordenar"
+                            ):
+                                novas = []
+                                for i, texto in enumerate(nova_ordem, start=1):
+                                    p = next(p for p in perguntas if p["pergunta"] == texto)
+                                    p["ordem"] = i
+                                    novas.append(p)
+
+                                colecao_editais.update_one(
+                                    {"_id": edital["_id"]},
+                                    {"$set": {
+                                        "estagios.$[e].perguntas_estagio": novas
+                                    }},
+                                    array_filters=[
+                                        {"e.ordem_estagio": estagio["ordem_estagio"]}
+                                    ]
+                                )
+
+                                st.success(
+                                    "Ordem atualizada com sucesso.",
+                                    icon=":material/check:"
+                                )
+                                time.sleep(3)
+                                st.rerun()
+
+
+
+
+
+
 
 ###########################################################################################################
 # ABA DISTRIBUIÇÃO
 ###########################################################################################################
 with tabs[2]:
     st.caption("Conteúdo da aba Distribuição")
+
+
+
+
+
+
+
 
 ###########################################################################################################
 # ABA CARREGAR
@@ -264,25 +769,75 @@ with tabs[3]:
             if f"{e['codigo_edital']} - {e['nome_edital']}" == edital_selecionado_label
         )
 
+        codigo_edital = edital["codigo_edital"]
+
         if not edital.get("id_planilha_recebimento"):
             st.caption("Este edital não possui ID de planilha configurado.")
         else:
+            # Contagem inicial
+            total_inicial = db.projetos.count_documents(
+                {"codigo_edital": codigo_edital}
+            )
+
+            # Inicializa estados
+            if "total_projetos_exibido" not in st.session_state:
+                st.session_state.total_projetos_exibido = total_inicial
+
+            if "carregou_projetos" not in st.session_state:
+                st.session_state.carregou_projetos = False
+
+            # Botão
+            label_botao = (
+                "Atualizar projetos"
+                if total_inicial > 0
+                else "Carregar projetos"
+            )
+
             if st.button(
-                "Carregar dados",
+                label_botao,
                 icon=":material/download:",
                 type="primary"
             ):
-                # 1. Ler planilha
                 df_recebidos_sheet = ler_planilha_google_sheets(
                     edital["id_planilha_recebimento"]
                 )
 
-                # 2. Carregar no banco
-                carregar_projetos(
-                    df_recebidos_sheet,
-                    db.projetos
-                )
+                if df_recebidos_sheet.empty:
+                    st.warning("A planilha não possui dados.")
+                else:
+                    adicionados = carregar_projetos(
+                        df_recebidos_sheet,
+                        db.projetos,
+                        codigo_edital
+                    )
 
-                st.success("Dados carregados com sucesso.", icon=":material/check:")
-                time.sleep(3)
-                st.rerun()
+                    # Atualiza contagem exibida
+                    st.session_state.total_projetos_exibido = (
+                        total_inicial + len(adicionados)
+                    )
+
+                    st.session_state.carregou_projetos = True
+
+                    # Mensagens
+                    if not adicionados:
+                        st.success(
+                            "Nenhum projeto novo foi encontrado na planilha.",
+                            icon=":material/check:"
+                        )
+                    else:
+                        st.success(
+                            f"{str(len(adicionados))} projetos recebidos e cadastrados no sistema.",
+                            icon=":material/check:"
+                        )
+
+                        st.write("Projetos adicionados:")
+                        for i, codigo in enumerate(adicionados, start=1):
+                            st.write(f"{i} - {codigo}")
+
+            # EXIBE CONTAGEM (apenas uma vez)
+            st.write(
+                f"**{str(st.session_state.total_projetos_exibido)} "
+                "projetos cadastrados neste edital.**"
+            )
+
+
