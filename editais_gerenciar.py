@@ -3,6 +3,11 @@ import time
 from datetime import datetime, date
 from funcoes_auxiliares import conectar_mongo_ieb_selecao
 
+# Conectar google driva
+from googleapiclient.discovery import build
+from google.oauth2.service_account import Credentials
+
+
 ###########################################################################################################
 # CONEXÃO COM O BANCO DE DADOS MONGODB
 ###########################################################################################################
@@ -12,6 +17,72 @@ db = conectar_mongo_ieb_selecao()
 
 # Define a coleção de editais
 colecao_editais = db.editais
+
+
+
+###########################################################################################################
+# FUNÇÕES
+###########################################################################################################
+
+
+
+def ler_planilha_google_sheets(id_planilha):
+    """
+    Lê todas as linhas de uma planilha Google Sheets
+    e retorna um DataFrame com os dados
+    """
+
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    )
+
+    service = build("sheets", "v4", credentials=creds)
+
+    sheet = service.spreadsheets()
+    result = sheet.values().get(
+        spreadsheetId=id_planilha,
+        range="A:ZZ"
+    ).execute()
+
+    values = result.get("values", [])
+
+    if not values:
+        return pd.DataFrame()
+
+    # Primeira linha vira header
+    df = pd.DataFrame(values[1:], columns=values[0])
+    return df
+
+
+
+def carregar_projetos(df_recebidos_sheet, colecao_projetos):
+    """
+    Para cada codigo_recebimento, cria um documento
+    na coleção projetos caso não exista
+    """
+
+    for _, linha in df_recebidos_sheet.iterrows():
+
+        codigo = linha.get("codigo_recebimento")
+
+        if not codigo:
+            continue
+
+        colecao_projetos.update_one(
+            {"codigo_recebimento": codigo},
+            {"$setOnInsert": {
+                "codigo_recebimento": codigo
+            }},
+            upsert=True
+        )
+
+
+
+
+
+
+
 
 ###########################################################################################################
 # INTERFACE PRINCIPAL
@@ -184,4 +255,34 @@ with tabs[2]:
 # ABA CARREGAR
 ###########################################################################################################
 with tabs[3]:
-    st.caption("Conteúdo da aba Carregar")
+
+    if edital_selecionado_label == "":
+        st.caption("Selecione um edital para carregar os dados.")
+    else:
+        edital = next(
+            e for e in editais
+            if f"{e['codigo_edital']} - {e['nome_edital']}" == edital_selecionado_label
+        )
+
+        if not edital.get("id_planilha_recebimento"):
+            st.caption("Este edital não possui ID de planilha configurado.")
+        else:
+            if st.button(
+                "Carregar dados",
+                icon=":material/download:",
+                type="primary"
+            ):
+                # 1. Ler planilha
+                df_recebidos_sheet = ler_planilha_google_sheets(
+                    edital["id_planilha_recebimento"]
+                )
+
+                # 2. Carregar no banco
+                carregar_projetos(
+                    df_recebidos_sheet,
+                    db.projetos
+                )
+
+                st.success("Dados carregados com sucesso.", icon=":material/check:")
+                time.sleep(3)
+                st.rerun()
