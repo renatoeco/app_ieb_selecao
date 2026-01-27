@@ -12,7 +12,7 @@ import pandas as pd
 # Conecta-se ao banco de dados MongoDB (usa cache automático para melhorar performance)
 db = conectar_mongo_ieb_selecao()
 
-
+colecao_editais = db["editais"]
 
 
 
@@ -30,3 +30,6 @@ st.header('Editais')
 
 # st.write('')
 st.divider()
+
+
+

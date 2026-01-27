@@ -191,7 +191,7 @@ if abrir_dialog:
 # ABAS PRINCIPAIS
 ###########################################################################################################
 
-tabs = st.tabs(["Editar", "Estágios", "Distribuição", "Carregar"])
+tabs = st.tabs(["Editar", "Estágios", "Carregar"])
 
 ###########################################################################################################
 # ABA EDITAR
@@ -347,17 +347,23 @@ with tabs[1]:
                     if key_acao not in st.session_state:
                         st.session_state[key_acao] = "Ver perguntas"
 
+
                     acao = st.segmented_control(
                         "",
                         [
                             "Ver perguntas",
                             "Nova pergunta",
                             "Editar pergunta",
-                            "Reordenar pergunta",
-                            "Editar estágio"
+                            "Reordenar perguntas",
+                            "Selecionar avaliadores",
+                            "Distribuir projetos"
                         ],
-                        key=key_acao
+                        width="stretch",
+                        key=f"acao_{codigo_edital}_{estagio['nome_estagio']}"
                     )
+
+
+
 
 
 
@@ -740,16 +746,309 @@ with tabs[1]:
 
 
 
+                    ###############################################################################################
+                    # SELECIONAR AVALIADORES DO ESTÁGIO
+                    ###############################################################################################
+                    elif acao == "Selecionar avaliadores":
+
+                        st.write('')
+
+                        st.markdown("##### Selecione as pessoas que irão avaliar este estágio:")
+
+                        # Busca pessoas ativas
+                        pessoas_ativas = list(
+                            db.pessoas.find(
+                                {"status": "ativo"},
+                                {"nome_completo": 1, "editais": 1}
+                            )
+                        )
+
+                        if not pessoas_ativas:
+                            st.caption("Nenhuma pessoa ativa encontrada.")
+                        else:
+                            selecao_ui = {}
+
+                            for pessoa in pessoas_ativas:
+                                pessoa_id = str(pessoa["_id"])
+
+                                # Verifica se a pessoa já está vinculada ao estágio
+                                editais_pessoa = pessoa.get("editais", [])
+
+                                edital_pessoa = next(
+                                    (e for e in editais_pessoa if e["codigo_edital"] == codigo_edital),
+                                    None
+                                )
+
+                                estagios_pessoa = edital_pessoa.get("estagios", []) if edital_pessoa else []
+
+                                ja_vinculado = any(
+                                    e["nome_estagio"] == estagio["nome_estagio"]
+                                    for e in estagios_pessoa
+                                )
+
+                                key_checkbox = f"dist_{pessoa_id}_{codigo_edital}_{estagio['nome_estagio']}"
+
+                                marcado = st.checkbox(
+                                    pessoa["nome_completo"],
+                                    value=ja_vinculado,
+                                    key=key_checkbox
+                                )
+
+                                selecao_ui[pessoa_id] = {
+                                    "marcado": marcado,
+                                    "marcado_inicial": ja_vinculado,
+                                    "_id": pessoa["_id"]
+                                }
+
+                            st.write("")
+
+                            if st.button(
+                                "Salvar avaliadores(as)",
+                                type="primary",
+                                icon=":material/save:",
+                                key=f"salvar_avaliadores_{codigo_edital}_{estagio['nome_estagio']}"
+                            ):
+                                for pessoa_id, dados in selecao_ui.items():
+
+                                    marcado = dados["marcado"]
+                                    marcado_inicial = dados["marcado_inicial"]
+                                    pessoa_mongo_id = dados["_id"]
+
+                                    # Marcado agora → adiciona
+                                    if marcado and not marcado_inicial:
+
+                                        # Garante edital
+                                        db.pessoas.update_one(
+                                            {
+                                                "_id": pessoa_mongo_id,
+                                                "editais.codigo_edital": {"$ne": codigo_edital}
+                                            },
+                                            {"$push": {
+                                                "editais": {
+                                                    "codigo_edital": codigo_edital,
+                                                    "estagios": []
+                                                }
+                                            }}
+                                        )
+
+                                        # Adiciona estágio
+                                        db.pessoas.update_one(
+                                            {
+                                                "_id": pessoa_mongo_id,
+                                                "editais.codigo_edital": codigo_edital,
+                                                "editais.estagios.nome_estagio": {"$ne": estagio["nome_estagio"]}
+                                            },
+                                            {"$push": {
+                                                "editais.$.estagios": {
+                                                    "nome_estagio": estagio["nome_estagio"],
+                                                    "projetos": []
+                                                }
+                                            }}
+                                        )
+
+                                    # Desmarcado agora → remove
+                                    if not marcado and marcado_inicial:
+                                        db.pessoas.update_one(
+                                            {"_id": pessoa_mongo_id},
+                                            {"$pull": {
+                                                "editais.$[e].estagios": {
+                                                    "nome_estagio": estagio["nome_estagio"]
+                                                }
+                                            }},
+                                            array_filters=[
+                                                {"e.codigo_edital": codigo_edital}
+                                            ]
+                                        )
+
+                                st.success(
+                                    "Avaliadores(as) atualizados com sucesso.",
+                                    icon=":material/check:"
+                                )
 
 
 
-###########################################################################################################
-# ABA DISTRIBUIÇÃO
-###########################################################################################################
-with tabs[2]:
-    st.caption("Conteúdo da aba Distribuição")
 
 
+
+
+
+                    ###############################################################################################
+                    # DISTRIBUIR PROJETOS DO ESTÁGIO
+                    ###############################################################################################
+                    elif acao == "Distribuir projetos":
+
+                        st.write('')
+
+                        ###################################################################################################
+                        # BUSCA TODOS OS PROJETOS DO EDITAL
+                        ###################################################################################################
+                        projetos = list(
+                            db.projetos.find(
+                                {"codigo_edital": codigo_edital},
+                                {"codigo_recebimento": 1}
+                            )
+                        )
+
+                        lista_projetos = sorted(
+                            [p["codigo_recebimento"] for p in projetos]
+                        )
+
+                        ###################################################################################################
+                        # BUSCA TODAS AS PESSOAS SELECIONADAS PARA ESSE ESTÁGIO
+                        ###################################################################################################
+                        pessoas_estagio = list(
+                            db.pessoas.find(
+                                {
+                                    "editais.codigo_edital": codigo_edital,
+                                    "editais.estagios.nome_estagio": estagio["nome_estagio"]
+                                },
+                                {"nome_completo": 1, "editais": 1}
+                            )
+                        )
+
+                        if not pessoas_estagio:
+                            st.caption("Nenhum avaliador selecionado para este estágio.")
+                        else:
+                            ################################################################################################
+                            # COLUNAS PRINCIPAIS
+                            ################################################################################################
+                            col1, col2, col3 = st.columns([4, 2, 2])
+
+                            ################################################################################################
+                            # COLUNA 1 — DISTRIBUIÇÃO POR PESSOA
+                            ################################################################################################
+                            with col1:
+                                st.write("##### Distribuição de projetos")
+
+                                # Guarda seleção atual para atualizar placares
+                                distribuicao_atual = {}
+
+                                for pessoa in pessoas_estagio:
+
+                                    st.write('')
+
+                                    nome = pessoa["nome_completo"]
+                                    pessoa_id = pessoa["_id"]
+
+                                    # Busca projetos já atribuídos
+                                    edital_pessoa = next(
+                                        e for e in pessoa["editais"]
+                                        if e["codigo_edital"] == codigo_edital
+                                    )
+
+                                    estagio_pessoa = next(
+                                        e for e in edital_pessoa["estagios"]
+                                        if e["nome_estagio"] == estagio["nome_estagio"]
+                                    )
+
+                                    projetos_atual = estagio_pessoa.get("projetos", [])
+
+                                
+
+                                    # Multiselect
+                                    selecionados = st.multiselect(
+                                        f"{nome}",
+                                        options=lista_projetos,
+                                        default=projetos_atual,
+                                        key=f"multi_{pessoa_id}_{estagio['nome_estagio']}"
+                                    )
+
+                                    # Botão salvar por pessoa
+                                    if st.button(
+                                        "Salvar",
+                                        icon=":material/save:",
+                                        # type="tertiary",
+                                        key=f"salvar_proj_{pessoa_id}_{estagio['nome_estagio']}"
+                                    ):
+                                        # Atualiza projetos da pessoa
+                                        db.pessoas.update_one(
+                                            {"_id": pessoa_id},
+                                            {"$set": {
+                                                "editais.$[e].estagios.$[s].projetos": selecionados
+                                            }},
+                                            array_filters=[
+                                                {"e.codigo_edital": codigo_edital},
+                                                {"s.nome_estagio": estagio["nome_estagio"]}
+                                            ]
+                                        )
+
+                                        # Placeholder para mensagem temporária
+                                        msg = st.empty()
+
+                                        msg.success(
+                                            f"Projetos salvos para {nome}.",
+                                            icon=":material/check:"
+                                        )
+
+                                        time.sleep(2)
+                                        msg.empty()
+
+
+                                    # Guarda para placar
+                                    distribuicao_atual[nome] = selecionados
+
+                            ################################################################################################
+                            # FUNÇÕES AUXILIARES DE PLACAR (em memória)
+                            ################################################################################################
+                            def calcular_placar_projetos(distrib):
+                                placar = {p: 0 for p in lista_projetos}
+                                for projetos in distrib.values():
+                                    for p in projetos:
+                                        placar[p] += 1
+                                return placar
+
+                            def calcular_placar_pessoas(distrib):
+                                return {
+                                    nome: len(projetos)
+                                    for nome, projetos in distrib.items()
+                                }
+
+                            ################################################################################################
+                            # COLUNA 2 — PLACAR DE PROJETOS
+                            ################################################################################################
+                            with col2:
+                                st.write("##### Avaliadores(as) por Projeto")
+
+                                placar_projetos = calcular_placar_projetos(distribuicao_atual)
+
+                                for codigo, total in placar_projetos.items():
+
+                                    # Sempre cria 2 subcolunas por linha
+                                    sub1, sub2 = st.columns([3, 1])
+
+                                    # Código do projeto
+                                    sub1.write(codigo)
+
+                                    # Total de avaliadores
+                                    sub2.write(str(total))
+
+
+
+                            ################################################################################################
+                            # COLUNA 3 — PLACAR DE AVALIADORES(AS)
+                            ################################################################################################
+                            with col3:
+                                st.write("##### Projetos por Avaliador(a)")
+
+                                placar_pessoas = calcular_placar_pessoas(distribuicao_atual)
+
+                                # Ordena do maior para o menor
+                                placar_ordenado = sorted(
+                                    placar_pessoas.items(),
+                                    key=lambda x: x[1],
+                                    reverse=True
+                                )
+
+                                for nome, total in placar_ordenado:
+
+                                    # Sempre cria 2 subcolunas por linha
+                                    sub1, sub2 = st.columns([3, 1])
+
+                                    # Nome da pessoa
+                                    sub1.write(nome)
+
+                                    # Total de projetos atribuídos
+                                    sub2.write(str(total))
 
 
 
@@ -759,7 +1058,7 @@ with tabs[2]:
 ###########################################################################################################
 # ABA CARREGAR
 ###########################################################################################################
-with tabs[3]:
+with tabs[2]:
 
     if edital_selecionado_label == "":
         st.caption("Selecione um edital para carregar os dados.")
