@@ -402,44 +402,107 @@ else:
         "home_admin": {
 
             "Editais": [
-                st.Page("editais_lista.py", title="Editais", icon=":material/analytics:"),
-                st.Page("editais_gerenciar.py", title="Gerenciar", icon=":material/settings:"),
-    
+                st.Page(
+                    "editais_lista.py",
+                    title="Editais",
+                    icon=":material/analytics:"
+                ),
+                st.Page(
+                    "editais_gerenciar.py",
+                    title="Gerenciar",
+                    icon=":material/settings:"
+                ),
             ],
-    
+
             "Pessoas": [
-                st.Page("pessoas_equipe.py", title="Equipe", icon=":material/badge:"),
-                st.Page("pessoas_avaliadores.py", title="Avaliadores", icon=":material/group:"),
-                st.Page("pessoas_visitantes.py", title="Visitantes", icon=":material/visibility:"),
-                st.Page("pessoas_cadastrar.py", title="Convidar pessoas", icon=":material/person_add:"),
-                st.Page("pessoas_convites.py", title="Convites pendentes", icon=":material/mail:"),
+                st.Page(
+                    "pessoas_equipe.py",
+                    title="Equipe",
+                    icon=":material/badge:"
+                ),
+                st.Page(
+                    "pessoas_avaliadores.py",
+                    title="Avaliadores",
+                    icon=":material/group:"
+                ),
+                st.Page(
+                    "pessoas_visitantes.py",
+                    title="Visitantes",
+                    icon=":material/visibility:"
+                ),
+                st.Page(
+                    "pessoas_cadastrar.py",
+                    title="Convidar pessoas",
+                    icon=":material/person_add:"
+                ),
+                st.Page(
+                    "pessoas_convites.py",
+                    title="Convites pendentes",
+                    icon=":material/mail:"
+                ),
             ],
-            # "Administração": [
-            #     st.Page("cadastros_auxiliares.py", title="Cadastros auxiliares", icon=":material/tune:"),
-            #     st.Page("relatorio_acessos.py", title="Relatório de acessos", icon=":material/bar_chart:"),
-            #     st.Page("relatorio_armazenamento.py", title="Armazenamento", icon=":material/home_storage:"),
-            # ],
+
+            "Sessão": [
+                st.Page(
+                    "sair.py",
+                    title="Sair",
+                    icon=":material/logout:"
+                ),
+            ],
         },
 
         "home_equipe": {
+
             "Pessoas": [
-                st.Page("pessoas_equipe.py", title="Equipe", icon=":material/badge:"),
-                st.Page("pessoas_avaliadores.py", title="Avaliadores", icon=":material/group:"),
-                st.Page("pessoas_visitantes.py", title="Visitantes", icon=":material/visibility:"),
-                st.Page("pessoas_cadastrar.py", title="Convidar pessoas", icon=":material/person_add:"),
-                st.Page("pessoas_convites.py", title="Convites pendentes", icon=":material/mail:"),
+                st.Page(
+                    "pessoas_equipe.py",
+                    title="Equipe",
+                    icon=":material/badge:"
+                ),
+                st.Page(
+                    "pessoas_avaliadores.py",
+                    title="Avaliadores",
+                    icon=":material/group:"
+                ),
+                st.Page(
+                    "pessoas_visitantes.py",
+                    title="Visitantes",
+                    icon=":material/visibility:"
+                ),
+                st.Page(
+                    "pessoas_cadastrar.py",
+                    title="Convidar pessoas",
+                    icon=":material/person_add:"
+                ),
+                st.Page(
+                    "pessoas_convites.py",
+                    title="Convites pendentes",
+                    icon=":material/mail:"
+                ),
+            ],
+
+            "Sessão": [
+                st.Page(
+                    "sair.py",
+                    title="Sair",
+                    icon=":material/logout:"
+                ),
             ],
         },
 
-
-
-        # "visitante": {
-        #     "Editais": [
-        #         st.Page("Editais.py", title="Editais", icon=":material/analytics:"),
-        #     ],
-        # },
+        "ver_projetos": [
+            st.Page(
+                "edital_projetos.py",
+                title="Projetos",
+                icon=":material/folder_open:"
+            ),
+            st.Page(
+                "sair.py",
+                title="Sair",
+                icon=":material/logout:"
+            ),
+        ],
     }
-
 
 
     # Inicializa variáveis de controle no session_state ----------------------
@@ -460,100 +523,70 @@ else:
     tipo_usuario = st.session_state.get("tipo_usuario", "")
 
 
-    # ROTEAMENTO DO ADMIN ---------------------------------
+    # ROTEAMENTO DO ADMIN --------------------------------------------------
     if tipo_usuario == "admin":
-        
-        # Página inicial do admin 
 
-        # Primeira execução: 
-        # se pagina_atual == None, a pagina atual será home_admin
         if st.session_state.pagina_atual is None:
             st.session_state.pagina_atual = "home_admin"
 
-        # Demais execuções
-        # Home do admin
         if st.session_state.pagina_atual == "home_admin":
             pages = pags_por_tipo["home_admin"]
 
-        # Admin visita projetos
-        elif st.session_state.pagina_atual == "ver_projeto":
-            pages = pags_por_tipo["ver_projeto"]
+        elif st.session_state.pagina_atual == "ver_projetos":
+            pages = pags_por_tipo["ver_projetos"]
 
 
-
-
-    # ROTEAMENTO DA EQUIPE ---------------------------------
-    elif tipo_usuario == "equipe":
+    # # ROTEAMENTO DO ADMIN ---------------------------------
+    # if tipo_usuario == "admin":
         
-        # Primeira execução: 
-        # se pagina_atual == None, a pagina atual será home_equipe
+    #     # Página inicial do admin 
+
+    #     # Primeira execução: 
+    #     # se pagina_atual == None, a pagina atual será home_admin
+    #     if st.session_state.pagina_atual is None:
+    #         st.session_state.pagina_atual = "home_admin"
+
+    #     # Demais execuções
+    #     # Home do admin
+    #     if st.session_state.pagina_atual == "home_admin":
+    #         pages = pags_por_tipo["home_admin"]
+
+    #     # Admin visita projetos
+    #     elif st.session_state.pagina_atual == "ver_projeto":
+    #         pages = pags_por_tipo["ver_projeto"]
+
+
+
+    # ROTEAMENTO DA EQUIPE
+    elif tipo_usuario == "equipe":
+
         if st.session_state.pagina_atual is None:
             st.session_state.pagina_atual = "home_equipe"
 
-        # Demais execuções
-        # Home da equipe
         if st.session_state.pagina_atual == "home_equipe":
             pages = pags_por_tipo["home_equipe"]
 
-        # Equipe visita projetos
-        elif st.session_state.pagina_atual == "ver_projeto":
-            pages = pags_por_tipo["ver_projeto"]
+        elif st.session_state.pagina_atual == "ver_projetos":
+            pages = pags_por_tipo["ver_projetos"]
 
 
-
-    # # ROTEAMENTO DO BENEFICIÁRIO ---------------------------------
-    # elif tipo_usuario == "beneficiario":
-
-    #     projetos_raw = st.session_state.get("projetos")
-    #     projetos = projetos_raw if isinstance(projetos_raw, list) else []
-
-    #     # Primeira execução:
+    # # ROTEAMENTO DA EQUIPE ---------------------------------
+    # elif tipo_usuario == "equipe":
+        
+    #     # Primeira execução: 
+    #     # se pagina_atual == None, a pagina atual será home_equipe
     #     if st.session_state.pagina_atual is None:
-
-    #         # Verifica quantos projetos o beneficiário tem
-    #         if len(projetos) == 1:
-    #             st.session_state.pagina_atual = "ver_projeto"
-    #         else:
-    #             st.session_state.pagina_atual = "ben_selec_projeto"
+    #         st.session_state.pagina_atual = "home_equipe"
 
     #     # Demais execuções
-    #     if st.session_state.pagina_atual == "ver_projeto":
+    #     # Home da equipe
+    #     if st.session_state.pagina_atual == "home_equipe":
+    #         pages = pags_por_tipo["home_equipe"]
 
-    #         if not st.session_state.get("projeto_atual") and len(projetos) >= 1:
-    #             st.session_state.projeto_atual = projetos[0]
-
+    #     # Equipe visita projetos
+    #     elif st.session_state.pagina_atual == "ver_projeto":
     #         pages = pags_por_tipo["ver_projeto"]
 
-    #     elif st.session_state.pagina_atual == "ben_selec_projeto":
-    #         pages = pags_por_tipo["ben_selec_projeto"]
-
-
-
-    # # ROTEAMENTO DO VISITANTE ---------------------------------
-    # elif tipo_usuario == "visitante":
-
-    #     projetos_raw = st.session_state.get("projetos")
-    #     projetos = projetos_raw if isinstance(projetos_raw, list) else []
-
-    #     # Primeira execução:
-    #     if st.session_state.pagina_atual is None:
-
-    #         # Verifica quantos projetos o visitante tem
-    #         if len(projetos) == 1:
-    #             st.session_state.pagina_atual = "ver_projeto"
-    #         else:
-    #             st.session_state.pagina_atual = "ben_selec_projeto"
-
-    #     # Demais execuções
-    #     if st.session_state.pagina_atual == "ver_projeto":
-
-    #         if not st.session_state.get("projeto_atual") and len(projetos) >= 1:
-    #             st.session_state.projeto_atual = projetos[0]
-
-    #         pages = pags_por_tipo["ver_projeto"]
-
-    #     elif st.session_state.pagina_atual == "ben_selec_projeto":
-    #         pages = pags_por_tipo["ben_selec_projeto"]
 
 
 

@@ -100,7 +100,12 @@ if not editais:
     st.info("Nenhum edital cadastrado.")
 
 else:
-    st.caption(f"{len(editais)} edital(is) cadastrado(s).")
+
+    # Apresenta a quantidade de editais com concordância de número.
+    quantidade_editais = len(editais)
+    texto_editais = "edital cadastrado" if quantidade_editais == 1 else "editais cadastrados"
+    st.write(f"{quantidade_editais} {texto_editais}.")
+
 
     for edital in editais:
 
@@ -162,29 +167,14 @@ else:
                     f"{edital.get('data_encerramento', 'Não informada')}"
                 )
 
-            # Apresenta campos adicionais, caso existam no documento.
-            campos_exibidos = {
-                "codigo_edital",
-                "nome_edital",
-                "data_lancamento",
-                "data_encerramento",
-                "valor_edital",
-                "id_planilha_recebimento",
-                "estagios",
-                "tags"
-            }
 
-            campos_adicionais = {
-                chave: valor
-                for chave, valor in edital.items()
-                if chave not in campos_exibidos and chave != "_id"
-            }
-
-            if campos_adicionais:
-                with st.expander("Outras informações"):
-                    for chave, valor in campos_adicionais.items():
-                        st.markdown(
-                            f"**{chave.replace('_', ' ').capitalize()}:**"
-                        )
-
-                        st.write(valor)
+            # Botão para abrir edital e ver projetos
+            with st.container(horizontal=True, horizontal_alignment="right"):
+                if st.button(
+                    "Ver projetos",
+                    key=f"ver_projetos_{edital.get('codigo_edital', 'sem_codigo')}",
+                    type="primary"
+                ):
+                    st.session_state["edital_selecionado"] = edital
+                    st.session_state["pagina_atual"] = "ver_projetos"
+                    st.rerun()
