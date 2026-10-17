@@ -1674,15 +1674,13 @@ with tabs[3]:
                             "Ela será removida de todos os projetos."
                         )
 
-                        col_confirmar, col_cancelar = st.columns(2)
-
-                        with col_confirmar:
+                        # Botões
+                        with st.container(horizontal=True):
                             if st.button(
                                 "Confirmar exclusão",
                                 key=f"confirmar_exclusao_tag_{tag['id']}",
-                                type="primary",
+                                # type="primary",
                                 icon=":material/delete:",
-                                width="stretch"
                             ):
                                 resultado = colecao_editais.update_one(
                                     {"_id": id_edital_tags},
@@ -1707,12 +1705,11 @@ with tabs[3]:
                                         "Não foi possível excluir a tag."
                                     )
 
-                        with col_cancelar:
                             if st.button(
                                 "Cancelar",
                                 key=f"cancelar_exclusao_tag_{tag['id']}",
                                 type="secondary",
-                                width="stretch"
+                                icon=":material/close:",
                             ):
                                 st.session_state.tag_excluir_pendente = None
                                 st.rerun()
