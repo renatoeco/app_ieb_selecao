@@ -4,7 +4,7 @@ import time
 from datetime import datetime, date
 from funcoes_auxiliares import conectar_mongo_ieb_selecao
 from streamlit_sortables import sort_items
-
+import re
 
 # Conectar google driva
 from googleapiclient.discovery import build
@@ -26,6 +26,26 @@ colecao_editais = db.editais
 ###########################################################################################################
 # FUNÇÕES
 ###########################################################################################################
+
+
+def extrair_id_planilha(endereco_planilha):
+    """
+    Extrai o ID de uma planilha Google Sheets a partir do endereço informado.
+    Retorna None se o endereço não corresponder ao formato esperado.
+    """
+
+    if not endereco_planilha:
+        return None
+
+    resultado = re.search(
+        r"docs\.google\.com/spreadsheets/d/([^/]+)",
+        endereco_planilha.strip()
+    )
+
+    if resultado:
+        return resultado.group(1)
+
+    return None
 
 
 
@@ -158,7 +178,7 @@ def dialog_novo_edital():
             value=date.today(),
             format="DD/MM/YYYY"
         )
-        id_planilha_recebimento = st.text_input("ID da Planilha de Recebimento")
+        endereco_planilha = st.text_input("Endereço da Planilha de Recebimento")
 
         botao_salvar = st.form_submit_button(
             "Salvar Edital",
@@ -167,8 +187,15 @@ def dialog_novo_edital():
         )
 
         if botao_salvar:
+
+            id_planilha_recebimento = extrair_id_planilha(endereco_planilha)
+
             if not codigo_edital or not nome_edital or not data_lancamento:
                 st.error("Todos os campos são obrigatórios")
+
+            elif not id_planilha_recebimento:
+                st.error("Informe um endereço válido de uma planilha Google Sheets.")
+
             else:
                 documento = {
                     "codigo_edital": codigo_edital,
@@ -183,6 +210,22 @@ def dialog_novo_edital():
                 time.sleep(3)
                 st.rerun()
 
+            # if not codigo_edital or not nome_edital or not data_lancamento:
+            #     st.error("Todos os campos são obrigatórios")
+            # else:
+            #     documento = {
+            #         "codigo_edital": codigo_edital,
+            #         "nome_edital": nome_edital,
+            #         "data_lancamento": data_lancamento.strftime("%d/%m/%Y"),
+            #         "id_planilha_recebimento": id_planilha_recebimento
+            #     }
+
+            #     colecao_editais.insert_one(documento)
+
+            #     st.success("Edital salvo com sucesso.", icon=":material/check:")
+            #     time.sleep(3)
+            #     st.rerun()
+
 # Abre o dialog ao clicar no botão
 if abrir_dialog:
     dialog_novo_edital()
@@ -193,13 +236,16 @@ if abrir_dialog:
 
 tabs = st.tabs(["Editar", "Estágios", "Carregar"])
 
+
 ###########################################################################################################
 # ABA EDITAR
 ###########################################################################################################
+
 with tabs[0]:
 
     if edital_selecionado_label == "":
         st.caption("Selecione um edital para editar.")
+
     else:
         edital_selecionado = next(
             e for e in editais
@@ -209,6 +255,18 @@ with tabs[0]:
         data_edital = datetime.strptime(
             edital_selecionado["data_lancamento"], "%d/%m/%Y"
         ).date()
+
+        # Recupera o ID da planilha salvo no banco de dados
+        id_planilha_atual = edital_selecionado.get(
+            "id_planilha_recebimento", ""
+        )
+
+        # Reconstrói o endereço completo para exibição no formulário
+        endereco_planilha_atual = (
+            f"https://docs.google.com/spreadsheets/d/{id_planilha_atual}/edit"
+            if id_planilha_atual
+            else ""
+        )
 
         with st.form("form_editar_edital", clear_on_submit=False):
 
@@ -229,9 +287,9 @@ with tabs[0]:
                 format="DD/MM/YYYY"
             )
 
-            id_planilha_recebimento_edit = st.text_input(
-                "ID da Planilha de Recebimento",
-                value=edital_selecionado.get("id_planilha_recebimento", "")
+            endereco_planilha_edit = st.text_input(
+                "Endereço da Planilha de Recebimento",
+                value=endereco_planilha_atual
             )
 
             botao_atualizar = st.form_submit_button(
@@ -241,26 +299,50 @@ with tabs[0]:
             )
 
             if botao_atualizar:
-                if not codigo_edital_edit or not nome_edital_edit or not data_lancamento_edit:
+
+                if (
+                    not codigo_edital_edit
+                    or not nome_edital_edit
+                    or not data_lancamento_edit
+                ):
                     st.error("Todos os campos são obrigatórios")
+
                 else:
-                    colecao_editais.update_one(
-                        {"_id": edital_selecionado["_id"]},
-                        {"$set": {
-                            "codigo_edital": codigo_edital_edit,
-                            "nome_edital": nome_edital_edit,
-                            "data_lancamento": data_lancamento_edit.strftime("%d/%m/%Y"),
-                            "id_planilha_recebimento": id_planilha_recebimento_edit
-                        }}
+                    # Extrai o ID da planilha a partir do endereço informado
+                    id_planilha_recebimento_edit = extrair_id_planilha(
+                        endereco_planilha_edit
                     )
 
-                    st.success(
-                        "Edital atualizado com sucesso.",
-                        icon=":material/check:"
-                    )
-                    time.sleep(3)
-                    st.rerun()
+                    if not id_planilha_recebimento_edit:
+                        st.error(
+                            "Informe um endereço válido de uma planilha Google Sheets."
+                        )
 
+                    else:
+                        # Atualiza os dados do edital sem alterar os demais campos
+                        colecao_editais.update_one(
+                            {"_id": edital_selecionado["_id"]},
+                            {
+                                "$set": {
+                                    "codigo_edital": codigo_edital_edit,
+                                    "nome_edital": nome_edital_edit,
+                                    "data_lancamento": (
+                                        data_lancamento_edit.strftime("%d/%m/%Y")
+                                    ),
+                                    "id_planilha_recebimento": (
+                                        id_planilha_recebimento_edit
+                                    )
+                                }
+                            }
+                        )
+
+                        st.success(
+                            "Edital atualizado com sucesso.",
+                            icon=":material/check:"
+                        )
+
+                        time.sleep(3)
+                        st.rerun()
 
 
 ###########################################################################################################
@@ -1086,6 +1168,7 @@ with tabs[2]:
                 st.session_state.carregou_projetos = False
 
             # Botão
+            st.write('')
             label_botao = (
                 "Atualizar projetos"
                 if total_inicial > 0
@@ -1138,5 +1221,7 @@ with tabs[2]:
                 f"**{str(st.session_state.total_projetos_exibido)} "
                 "projetos cadastrados neste edital.**"
             )
+
+            st.caption("Clique no botão acima para buscar novos projetos na planilha de recebimento.")
 
 

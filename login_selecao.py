@@ -400,23 +400,13 @@ else:
     pags_por_tipo = {
 
         "home_admin": {
-    #         "Projetos": [
-    #             st.Page("projetos_home_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
-    #             st.Page("projetos_lista.py", title="Projetos", icon=":material/list:"),
-    #             st.Page("mapa.py", title="Mapa", icon=":material/map:"),
-    #             st.Page("projeto_novo.py", title="Novo projeto", icon=":material/add_circle:"),
-    #         ],
+
             "Editais": [
                 st.Page("editais_lista.py", title="Editais", icon=":material/analytics:"),
                 st.Page("editais_gerenciar.py", title="Gerenciar", icon=":material/settings:"),
-    #             # st.Page("nova_chamada.py", title="Cadastrar chamada", icon=":material/campaign:"),
-    #             # st.Page("nova_chamada.py", title="Cadastrar chamada", icon=":material/campaign:"),
-
+    
             ],
-    #         "Organizações": [
-    #             st.Page("organizacoes_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
-    #             st.Page("organizacao_nova.py", title="Nova organização", icon=":material/add_business:"),
-    #         ],
+    
             "Pessoas": [
                 st.Page("pessoas_equipe.py", title="Equipe", icon=":material/badge:"),
                 st.Page("pessoas_avaliadores.py", title="Avaliadores", icon=":material/group:"),
@@ -424,31 +414,14 @@ else:
                 st.Page("pessoas_cadastrar.py", title="Convidar pessoas", icon=":material/person_add:"),
                 st.Page("pessoas_convites.py", title="Convites pendentes", icon=":material/mail:"),
             ],
-    #         "Administração": [
-    #             st.Page("cadastros_auxiliares.py", title="Cadastros auxiliares", icon=":material/tune:"),
-    #             st.Page("relatorio_acessos.py", title="Relatório de acessos", icon=":material/bar_chart:"),
-    #             st.Page("relatorio_armazenamento.py", title="Armazenamento", icon=":material/home_storage:"),
-    #         ],
+            # "Administração": [
+            #     st.Page("cadastros_auxiliares.py", title="Cadastros auxiliares", icon=":material/tune:"),
+            #     st.Page("relatorio_acessos.py", title="Relatório de acessos", icon=":material/bar_chart:"),
+            #     st.Page("relatorio_armazenamento.py", title="Armazenamento", icon=":material/home_storage:"),
+            # ],
         },
 
         "home_equipe": {
-            # "Projetos": [
-            #     st.Page("projetos_home_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
-            #     st.Page("projetos_lista.py", title="Projetos", icon=":material/list:"),
-            #     st.Page("mapa.py", title="Mapa", icon=":material/map:"),
-            #     st.Page("projeto_novo.py", title="Novo projeto", icon=":material/add_circle:"),
-            # ],
-            # "Ciclos de investimento": [
-            #     st.Page("ciclos_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
-            #     st.Page("ciclos_gerenciar.py", title="Gerenciar", icon=":material/settings:"),
-            #     # st.Page("nova_chamada.py", title="Cadastrar chamada", icon=":material/campaign:"),
-            #     # st.Page("nova_chamada.py", title="Cadastrar chamada", icon=":material/campaign:"),
-
-            # ],
-            # "Organizações": [
-            #     st.Page("organizacoes_visao_geral.py", title="Visão geral", icon=":material/analytics:"),
-            #     st.Page("organizacao_nova.py", title="Nova organização", icon=":material/add_business:"),
-            # ],
             "Pessoas": [
                 st.Page("pessoas_equipe.py", title="Equipe", icon=":material/badge:"),
                 st.Page("pessoas_avaliadores.py", title="Avaliadores", icon=":material/group:"),
@@ -458,25 +431,11 @@ else:
             ],
         },
 
-        # "ver_projeto": [
-        #     st.Page("projeto_visao_geral.py", title="Visão geral", icon=":material/home:"),
-        #     st.Page("projeto_atividades.py", title="Atividades", icon=":material/assignment:"),
-        #     st.Page("projeto_financeiro.py", title="Financeiro", icon=":material/payments:"),
-        #     st.Page("projeto_locais.py", title="Locais", icon=":material/map:"),
-        #     st.Page("projeto_relatorios.py", title="Relatórios", icon=":material/edit_note:"),
-        #     st.Page("projeto_fotos.py", title="Fotos", icon=":material/image:"),
-        # ],
 
-
-        # "avaliador_selec_projeto": [
-        #         st.Page("ben_selec_projeto.py", title="Selecione o projeto", icon=":material/assignment:"),
-        #     ],
-       
 
         # "visitante": {
-        #     "PROJETOS": [
-        #         st.Page("projetos_home_visao_geral.py", title="Projetos", icon=":material/assignment:"),
-        #         st.Page("mapa.py", title="Mapa", icon=":material/map:"),
+        #     "Editais": [
+        #         st.Page("Editais.py", title="Editais", icon=":material/analytics:"),
         #     ],
         # },
     }
