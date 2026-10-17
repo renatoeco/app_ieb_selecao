@@ -475,7 +475,7 @@ with tabs[0]:
             codigo_edital_edit = st.text_input(
                 "Código do Edital",
                 value=edital_selecionado["codigo_edital"],
-                disabled=True
+                # disabled=True
             )
 
             nome_edital_edit = st.text_input(
@@ -489,21 +489,24 @@ with tabs[0]:
                 placeholder="Ex.: 1.234.567,89"
             )
 
+
+            col1, col2 = st.columns(2)
+
             # Data de lançamento do edital
-            data_lancamento = st.date_input(
+            data_lancamento_edit = col1.date_input(
                 "Data de lançamento",
-                value=None,
-                format="DD/MM/YYYY",
-                placeholder="dd/mm/aaaa"
+                value=data_lancamento,
+                format="DD/MM/YYYY"
             )
 
             # Data de encerramento do edital
-            data_encerramento = st.date_input(
+            data_encerramento_edit = col2.date_input(
                 "Data de encerramento",
-                value=None,
-                format="DD/MM/YYYY",
-                placeholder="dd/mm/aaaa"
+                value=data_encerramento,
+                format="DD/MM/YYYY"
             )
+
+
 
             endereco_planilha_edit = st.text_input(
                 "Endereço da Planilha de Recebimento",
@@ -552,6 +555,13 @@ with tabs[0]:
                                         "nome_edital": nome_edital_edit,
                                         "data_lancamento": (
                                             data_lancamento_edit.strftime("%d/%m/%Y")
+                                            if data_lancamento_edit
+                                            else None
+                                        ),
+                                        "data_encerramento": (
+                                            data_encerramento_edit.strftime("%d/%m/%Y")
+                                            if data_encerramento_edit
+                                            else None
                                         ),
                                         "id_planilha_recebimento": (
                                             id_planilha_recebimento_edit
