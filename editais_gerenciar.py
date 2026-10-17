@@ -190,60 +190,6 @@ def dialog_nova_tag(id_edital):
 
 
 
-# @st.dialog("Nova tag")
-# def dialog_nova_tag(id_edital):
-
-#     with st.form("form_nova_tag", clear_on_submit=False):
-
-#         nome_tag = st.text_input("Nome da tag")
-
-#         descricao_tag = st.text_area(
-#             "Descrição",
-#             height=100
-#         )
-
-#         cor_tag = st.color_picker(
-#             "Cor da tag",
-#             value="#10A37F"
-#         )
-
-#         botao_salvar = st.form_submit_button(
-#             "Salvar tag",
-#             type="primary",
-#             icon=":material/save:"
-#         )
-
-#         if botao_salvar:
-
-#             if not nome_tag.strip():
-#                 st.error("Informe o nome da tag.")
-
-#             else:
-#                 tag = {
-#                     "id": uuid.uuid4().hex,
-#                     "nome": nome_tag.strip(),
-#                     "descricao": descricao_tag.strip(),
-#                     "cor": cor_tag
-#                 }
-
-#                 # Adiciona a tag sem alterar os demais dados do edital
-#                 resultado = colecao_editais.update_one(
-#                     {"_id": id_edital},
-#                     {"$push": {"tags": tag}}
-#                 )
-
-#                 if resultado.matched_count:
-#                     st.success(
-#                         "Tag cadastrada com sucesso.",
-#                         icon=":material/check:"
-#                     )
-#                     time.sleep(3)
-#                     st.rerun()
-
-#                 else:
-#                     st.error("Não foi possível localizar o edital.")
-
-
 @st.dialog("Editar tag")
 def dialog_editar_tag(id_edital, id_tag):
 
@@ -344,11 +290,24 @@ def dialog_novo_edital():
             placeholder="Ex.: 1.234.567,89"
         )
 
-        data_lancamento = st.date_input(
-            "Data de Lançamento",
-            value=date.today(),
-            format="DD/MM/YYYY"
+        col1, col2 = st.columns(2)
+
+        # Data de lançamento do edital
+        data_lancamento = col1.date_input(
+            "Data de lançamento",
+            value=None,
+            format="DD/MM/YYYY",
+            key="novo_edital_data_lancamento"
         )
+
+        # Data de encerramento do edital
+        data_encerramento = col2.date_input(
+            "Data de encerramento",
+            value=None,
+            format="DD/MM/YYYY",
+            key="novo_edital_data_encerramento"
+        )
+
         endereco_planilha = st.text_input("Endereço da Planilha de Recebimento")
 
         botao_salvar = st.form_submit_button(
@@ -384,6 +343,11 @@ def dialog_novo_edital():
                             "codigo_edital": codigo_edital,
                             "nome_edital": nome_edital,
                             "data_lancamento": data_lancamento.strftime("%d/%m/%Y"),
+                            "data_encerramento": (
+                                data_encerramento.strftime("%d/%m/%Y")
+                                if data_encerramento
+                                else None
+                            ),
                             "id_planilha_recebimento": id_planilha_recebimento,
                             "valor_edital": float(valor_edital)
                         }
@@ -448,83 +412,6 @@ with st.container(horizontal=True, horizontal_alignment="distribute"):
     )
 
 
-###########################################################################################################
-# DIALOG PARA CADASTRO DE NOVO EDITAL
-###########################################################################################################
-
-@st.dialog("Cadastrar Novo Edital")
-def dialog_novo_edital():
-    with st.form("form_novo_edital_dialog", clear_on_submit=False):
-
-        codigo_edital = st.text_input("Código do Edital")
-
-        nome_edital = st.text_input("Nome do Edital")
-
-        valor_edital_texto = st.text_input(
-            "Valor do edital (R$)",
-            value="0,00",
-            placeholder="Ex.: 1.234.567,89"
-        )
-
-        data_lancamento = st.date_input(
-            "Data de Lançamento",
-            value=date.today(),
-            format="DD/MM/YYYY"
-        )
-        endereco_planilha = st.text_input("Endereço da Planilha de Recebimento")
-
-        botao_salvar = st.form_submit_button(
-            "Salvar Edital",
-            type="primary",
-            icon=":material/save:"
-        )
-
-        if botao_salvar:
-
-            if not codigo_edital or not nome_edital or not data_lancamento:
-                st.error("Todos os campos obrigatórios devem ser preenchidos.")
-
-            else:
-                try:
-                    # Converte o valor monetário para float
-                    valor_edital = converter_valor_brasileiro(
-                        valor_edital_texto
-                    )
-
-                    # Extrai o ID da planilha a partir do endereço informado
-                    id_planilha_recebimento = extrair_id_planilha(
-                        endereco_planilha
-                    )
-
-                    if not id_planilha_recebimento:
-                        st.error(
-                            "Informe um endereço válido de uma planilha Google Sheets."
-                        )
-
-                    else:
-                        documento = {
-                            "codigo_edital": codigo_edital,
-                            "nome_edital": nome_edital,
-                            "data_lancamento": data_lancamento.strftime("%d/%m/%Y"),
-                            "id_planilha_recebimento": id_planilha_recebimento,
-                            "valor_edital": float(valor_edital)
-                        }
-
-                        colecao_editais.insert_one(documento)
-
-                        st.success(
-                            "Edital salvo com sucesso.",
-                            icon=":material/check:"
-                        )
-
-                        time.sleep(3)
-                        st.rerun()
-
-                except ValueError as erro:
-                    st.error(str(erro))
-
-
-
 
 
 # Abre o dialog ao clicar no botão
@@ -558,9 +445,18 @@ with tabs[0]:
             edital_selecionado.get("valor_edital", 0)
         )
 
-        data_edital = datetime.strptime(
+        # Recupera as datas cadastradas no edital
+        data_lancamento = datetime.strptime(
             edital_selecionado["data_lancamento"], "%d/%m/%Y"
         ).date()
+
+        data_encerramento = edital_selecionado.get("data_encerramento")
+
+        data_encerramento = (
+            datetime.strptime(data_encerramento, "%d/%m/%Y").date()
+            if data_encerramento
+            else None
+        )
 
         # Recupera o ID da planilha salvo no banco de dados
         id_planilha_atual = edital_selecionado.get(
@@ -593,10 +489,20 @@ with tabs[0]:
                 placeholder="Ex.: 1.234.567,89"
             )
 
-            data_lancamento_edit = st.date_input(
-                "Data de Lançamento",
-                value=data_edital,
-                format="DD/MM/YYYY"
+            # Data de lançamento do edital
+            data_lancamento = st.date_input(
+                "Data de lançamento",
+                value=None,
+                format="DD/MM/YYYY",
+                placeholder="dd/mm/aaaa"
+            )
+
+            # Data de encerramento do edital
+            data_encerramento = st.date_input(
+                "Data de encerramento",
+                value=None,
+                format="DD/MM/YYYY",
+                placeholder="dd/mm/aaaa"
             )
 
             endereco_planilha_edit = st.text_input(
