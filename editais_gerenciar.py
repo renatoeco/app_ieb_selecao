@@ -5,6 +5,7 @@ from datetime import datetime, date
 from funcoes_auxiliares import conectar_mongo_ieb_selecao
 from streamlit_sortables import sort_items
 import re
+import uuid
 
 from funcoes_auxiliares import(
     formatar_valor_brasileiro,
@@ -122,6 +123,285 @@ def carregar_projetos(df_recebidos_sheet, colecao_projetos, codigo_edital):
         adicionados.append(codigo)
 
     return adicionados
+
+
+
+###########################################################################################################
+# DIÁLOGOS PARA CADASTRO E EDIÇÃO DE TAGS
+###########################################################################################################
+
+
+@st.dialog("Nova tag")
+def dialog_nova_tag(id_edital):
+
+    @st.fragment
+    def formulario_nova_tag():
+
+        nome_tag = st.text_input(
+            "Nome da tag",
+            key="nova_tag_nome"
+        )
+
+        descricao_tag = st.text_area(
+            "Descrição",
+            height=100,
+            key="nova_tag_descricao"
+        )
+
+        cor_tag = st.color_picker(
+            "Cor da tag",
+            value="#10A37F",
+            key="nova_tag_cor"
+        )
+
+
+
+        if st.button(
+            "Salvar tag",
+            type="primary",
+            icon=":material/save:"
+        ):
+            if not nome_tag.strip():
+                st.error("Informe o nome da tag.")
+            else:
+                tag = {
+                    "id": uuid.uuid4().hex,
+                    "nome": nome_tag.strip(),
+                    "descricao": descricao_tag.strip(),
+                    "cor": cor_tag
+                }
+
+                resultado = colecao_editais.update_one(
+                    {"_id": id_edital},
+                    {"$push": {"tags": tag}}
+                )
+
+                if resultado.matched_count:
+                    st.success(
+                        "Tag cadastrada com sucesso.",
+                        icon=":material/check:"
+                    )
+                    time.sleep(3)
+                    st.rerun()
+                else:
+                    st.error("Não foi possível localizar o edital.")
+
+    formulario_nova_tag()
+
+
+
+# @st.dialog("Nova tag")
+# def dialog_nova_tag(id_edital):
+
+#     with st.form("form_nova_tag", clear_on_submit=False):
+
+#         nome_tag = st.text_input("Nome da tag")
+
+#         descricao_tag = st.text_area(
+#             "Descrição",
+#             height=100
+#         )
+
+#         cor_tag = st.color_picker(
+#             "Cor da tag",
+#             value="#10A37F"
+#         )
+
+#         botao_salvar = st.form_submit_button(
+#             "Salvar tag",
+#             type="primary",
+#             icon=":material/save:"
+#         )
+
+#         if botao_salvar:
+
+#             if not nome_tag.strip():
+#                 st.error("Informe o nome da tag.")
+
+#             else:
+#                 tag = {
+#                     "id": uuid.uuid4().hex,
+#                     "nome": nome_tag.strip(),
+#                     "descricao": descricao_tag.strip(),
+#                     "cor": cor_tag
+#                 }
+
+#                 # Adiciona a tag sem alterar os demais dados do edital
+#                 resultado = colecao_editais.update_one(
+#                     {"_id": id_edital},
+#                     {"$push": {"tags": tag}}
+#                 )
+
+#                 if resultado.matched_count:
+#                     st.success(
+#                         "Tag cadastrada com sucesso.",
+#                         icon=":material/check:"
+#                     )
+#                     time.sleep(3)
+#                     st.rerun()
+
+#                 else:
+#                     st.error("Não foi possível localizar o edital.")
+
+
+@st.dialog("Editar tag")
+def dialog_editar_tag(id_edital, id_tag):
+
+    # Busca o edital atualizado no banco de dados
+    edital = colecao_editais.find_one({"_id": id_edital})
+
+    if not edital:
+        st.error("Edital não encontrado.")
+        return
+
+    tag_atual = next(
+        (
+            tag for tag in edital.get("tags", [])
+            if tag.get("id") == id_tag
+        ),
+        None
+    )
+
+    if not tag_atual:
+        st.error("Tag não encontrada.")
+        return
+
+    with st.form("form_editar_tag", clear_on_submit=False):
+
+        nome_tag = st.text_input(
+            "Nome da tag",
+            value=tag_atual.get("nome", "")
+        )
+
+        descricao_tag = st.text_area(
+            "Descrição",
+            value=tag_atual.get("descricao", ""),
+            height=100
+        )
+
+        cor_tag = st.color_picker(
+            "Cor da tag",
+            value=tag_atual.get("cor", "#10A37F")
+        )
+
+        botao_salvar = st.form_submit_button(
+            "Salvar alterações",
+            type="primary",
+            icon=":material/save:"
+        )
+
+        if botao_salvar:
+
+            if not nome_tag.strip():
+                st.error("Informe o nome da tag.")
+
+            else:
+                # Atualiza somente os campos da tag selecionada
+                resultado = colecao_editais.update_one(
+                    {
+                        "_id": id_edital,
+                        "tags.id": id_tag
+                    },
+                    {
+                        "$set": {
+                            "tags.$.nome": nome_tag.strip(),
+                            "tags.$.descricao": descricao_tag.strip(),
+                            "tags.$.cor": cor_tag
+                        }
+                    }
+                )
+
+                if resultado.matched_count:
+                    st.success(
+                        "Tag atualizada com sucesso.",
+                        icon=":material/check:"
+                    )
+                    time.sleep(3)
+                    st.rerun()
+
+                else:
+                    st.error("Não foi possível atualizar a tag.")
+
+
+
+
+
+###########################################################################################################
+# DIALOG PARA CADASTRO DE NOVO EDITAL
+###########################################################################################################
+
+@st.dialog("Cadastrar Novo Edital")
+def dialog_novo_edital():
+    with st.form("form_novo_edital_dialog", clear_on_submit=False):
+
+        codigo_edital = st.text_input("Código do Edital")
+
+        nome_edital = st.text_input("Nome do Edital")
+
+        valor_edital_texto = st.text_input(
+            "Valor do edital (R$)",
+            value="0,00",
+            placeholder="Ex.: 1.234.567,89"
+        )
+
+        data_lancamento = st.date_input(
+            "Data de Lançamento",
+            value=date.today(),
+            format="DD/MM/YYYY"
+        )
+        endereco_planilha = st.text_input("Endereço da Planilha de Recebimento")
+
+        botao_salvar = st.form_submit_button(
+            "Salvar Edital",
+            type="primary",
+            icon=":material/save:"
+        )
+
+        if botao_salvar:
+
+            if not codigo_edital or not nome_edital or not data_lancamento:
+                st.error("Todos os campos obrigatórios devem ser preenchidos.")
+
+            else:
+                try:
+                    # Converte o valor monetário para float
+                    valor_edital = converter_valor_brasileiro(
+                        valor_edital_texto
+                    )
+
+                    # Extrai o ID da planilha a partir do endereço informado
+                    id_planilha_recebimento = extrair_id_planilha(
+                        endereco_planilha
+                    )
+
+                    if not id_planilha_recebimento:
+                        st.error(
+                            "Informe um endereço válido de uma planilha Google Sheets."
+                        )
+
+                    else:
+                        documento = {
+                            "codigo_edital": codigo_edital,
+                            "nome_edital": nome_edital,
+                            "data_lancamento": data_lancamento.strftime("%d/%m/%Y"),
+                            "id_planilha_recebimento": id_planilha_recebimento,
+                            "valor_edital": float(valor_edital)
+                        }
+
+                        colecao_editais.insert_one(documento)
+
+                        st.success(
+                            "Edital salvo com sucesso.",
+                            icon=":material/check:"
+                        )
+
+                        time.sleep(3)
+                        st.rerun()
+
+                except ValueError as erro:
+                    st.error(str(erro))
+
+
 
 
 
@@ -255,7 +535,7 @@ if abrir_dialog:
 # ABAS PRINCIPAIS
 ###########################################################################################################
 
-tabs = st.tabs(["Editar", "Estágios", "Carregar"])
+tabs = st.tabs(["Editar", "Estágios", "Carregar", "Tags"])
 
 
 ###########################################################################################################
@@ -1266,3 +1546,175 @@ with tabs[2]:
             st.caption("Clique no botão acima para buscar novos projetos na planilha de recebimento.")
 
 
+
+
+
+
+###########################################################################################################
+# ABA TAGS
+###########################################################################################################
+
+# Controla a confirmação de exclusão de uma tag
+if "tag_excluir_pendente" not in st.session_state:
+    st.session_state.tag_excluir_pendente = None
+
+with tabs[3]:
+
+    if edital_selecionado_label == "":
+        st.caption("Selecione um edital para gerenciar suas tags.")
+
+    else:
+        st.write('')
+        # Recupera o edital selecionado
+        edital_tags = next(
+            e for e in editais
+            if f"{e['codigo_edital']} - {e['nome_edital']}"
+            == edital_selecionado_label
+        )
+
+        id_edital_tags = edital_tags["_id"]
+
+        # Cabeçalho da aba
+        with st.container(horizontal=True, horizontal_alignment="distribute"):
+
+            st.write("**Tags do edital**")
+
+            if st.button(
+                "Nova tag",
+                type="primary",
+                icon=":material/add:",
+                width=160
+            ):
+                dialog_nova_tag(id_edital_tags)
+
+        # Busca novamente as tags para refletir os dados atuais
+        edital_tags_atualizado = colecao_editais.find_one(
+            {"_id": id_edital_tags},
+            {"tags": 1}
+        )
+
+        tags = (
+            edital_tags_atualizado.get("tags", [])
+            if edital_tags_atualizado
+            else []
+        )
+
+        if not tags:
+            st.caption("Nenhuma tag cadastrada para este edital.")
+
+        else:
+
+            st.write('')
+            st.write('')
+
+
+            # Lista as tags cadastradas
+            for tag in tags:
+
+                col_nome, col_descricao, col_botoes = st.columns(
+                    [2, 5, 2],
+                    vertical_alignment="center"
+                )
+
+                with col_nome:
+                    # Renderiza a tag com a cor personalizada
+                    cor = tag.get("cor", "#808080")
+
+                    st.markdown(
+                        f"""
+                        <span style="
+                            display: inline-block;
+                            background-color: {cor};
+                            color: #FFFFFF;
+                            padding: 4px 10px;
+                            border-radius: 999px;
+                            font-size: 0.875rem;
+                            font-weight: 500;
+                        ">
+                            {tag.get("nome", "")}
+                        </span>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                with col_descricao:
+                    st.write(tag.get("descricao", "") or "*Sem descrição*")
+
+
+
+                with col_botoes:
+
+                    with st.container(horizontal=True, horizontal_alignment="right"):
+
+                        if st.button(
+                            "",
+                            key=f"editar_tag_{tag['id']}",
+                            icon=":material/edit:",
+                        ):
+                            dialog_editar_tag(
+                                id_edital_tags,
+                                tag["id"]
+                            )
+
+                        if st.button(
+                            "",
+                            key=f"excluir_tag_{tag['id']}",
+                            icon=":material/delete:",
+                            type="secondary",
+                        ):
+                            st.session_state.tag_excluir_pendente = tag["id"]
+
+                # Exibe a confirmação somente para a tag selecionada
+                if st.session_state.tag_excluir_pendente == tag["id"]:
+
+                    with st.container(border=True):
+
+                        st.warning(
+                            "Deseja mesmo excluir a tag? "
+                            "Ela será removida de todos os projetos."
+                        )
+
+                        col_confirmar, col_cancelar = st.columns(2)
+
+                        with col_confirmar:
+                            if st.button(
+                                "Confirmar exclusão",
+                                key=f"confirmar_exclusao_tag_{tag['id']}",
+                                type="primary",
+                                icon=":material/delete:",
+                                width="stretch"
+                            ):
+                                resultado = colecao_editais.update_one(
+                                    {"_id": id_edital_tags},
+                                    {
+                                        "$pull": {
+                                            "tags": {"id": tag["id"]}
+                                        }
+                                    }
+                                )
+
+                                if resultado.matched_count:
+                                    st.session_state.tag_excluir_pendente = None
+
+                                    st.success(
+                                        "Tag excluída com sucesso.",
+                                        icon=":material/check:"
+                                    )
+                                    time.sleep(3)
+                                    st.rerun()
+                                else:
+                                    st.error(
+                                        "Não foi possível excluir a tag."
+                                    )
+
+                        with col_cancelar:
+                            if st.button(
+                                "Cancelar",
+                                key=f"cancelar_exclusao_tag_{tag['id']}",
+                                type="secondary",
+                                width="stretch"
+                            ):
+                                st.session_state.tag_excluir_pendente = None
+                                st.rerun()
+
+                st.divider()
