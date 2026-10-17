@@ -6,7 +6,12 @@ from funcoes_auxiliares import conectar_mongo_ieb_selecao
 from streamlit_sortables import sort_items
 import re
 
-# Conectar google driva
+from funcoes_auxiliares import(
+    formatar_valor_brasileiro,
+    converter_valor_brasileiro
+)
+
+# Conectar google drive
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 
@@ -172,7 +177,15 @@ def dialog_novo_edital():
     with st.form("form_novo_edital_dialog", clear_on_submit=False):
 
         codigo_edital = st.text_input("Código do Edital")
+
         nome_edital = st.text_input("Nome do Edital")
+
+        valor_edital_texto = st.text_input(
+            "Valor do edital (R$)",
+            value="0,00",
+            placeholder="Ex.: 1.234.567,89"
+        )
+
         data_lancamento = st.date_input(
             "Data de Lançamento",
             value=date.today(),
@@ -188,43 +201,51 @@ def dialog_novo_edital():
 
         if botao_salvar:
 
-            id_planilha_recebimento = extrair_id_planilha(endereco_planilha)
-
             if not codigo_edital or not nome_edital or not data_lancamento:
-                st.error("Todos os campos são obrigatórios")
-
-            elif not id_planilha_recebimento:
-                st.error("Informe um endereço válido de uma planilha Google Sheets.")
+                st.error("Todos os campos obrigatórios devem ser preenchidos.")
 
             else:
-                documento = {
-                    "codigo_edital": codigo_edital,
-                    "nome_edital": nome_edital,
-                    "data_lancamento": data_lancamento.strftime("%d/%m/%Y"),
-                    "id_planilha_recebimento": id_planilha_recebimento
-                }
+                try:
+                    # Converte o valor monetário para float
+                    valor_edital = converter_valor_brasileiro(
+                        valor_edital_texto
+                    )
 
-                colecao_editais.insert_one(documento)
+                    # Extrai o ID da planilha a partir do endereço informado
+                    id_planilha_recebimento = extrair_id_planilha(
+                        endereco_planilha
+                    )
 
-                st.success("Edital salvo com sucesso.", icon=":material/check:")
-                time.sleep(3)
-                st.rerun()
+                    if not id_planilha_recebimento:
+                        st.error(
+                            "Informe um endereço válido de uma planilha Google Sheets."
+                        )
 
-            # if not codigo_edital or not nome_edital or not data_lancamento:
-            #     st.error("Todos os campos são obrigatórios")
-            # else:
-            #     documento = {
-            #         "codigo_edital": codigo_edital,
-            #         "nome_edital": nome_edital,
-            #         "data_lancamento": data_lancamento.strftime("%d/%m/%Y"),
-            #         "id_planilha_recebimento": id_planilha_recebimento
-            #     }
+                    else:
+                        documento = {
+                            "codigo_edital": codigo_edital,
+                            "nome_edital": nome_edital,
+                            "data_lancamento": data_lancamento.strftime("%d/%m/%Y"),
+                            "id_planilha_recebimento": id_planilha_recebimento,
+                            "valor_edital": float(valor_edital)
+                        }
 
-            #     colecao_editais.insert_one(documento)
+                        colecao_editais.insert_one(documento)
 
-            #     st.success("Edital salvo com sucesso.", icon=":material/check:")
-            #     time.sleep(3)
-            #     st.rerun()
+                        st.success(
+                            "Edital salvo com sucesso.",
+                            icon=":material/check:"
+                        )
+
+                        time.sleep(3)
+                        st.rerun()
+
+                except ValueError as erro:
+                    st.error(str(erro))
+
+
+
+
 
 # Abre o dialog ao clicar no botão
 if abrir_dialog:
@@ -250,6 +271,11 @@ with tabs[0]:
         edital_selecionado = next(
             e for e in editais
             if f"{e['codigo_edital']} - {e['nome_edital']}" == edital_selecionado_label
+        )
+
+        # Recupera o valor do edital, mantendo compatibilidade com registros antigos
+        valor_edital_atual = formatar_valor_brasileiro(
+            edital_selecionado.get("valor_edital", 0)
         )
 
         data_edital = datetime.strptime(
@@ -281,6 +307,12 @@ with tabs[0]:
                 value=edital_selecionado["nome_edital"]
             )
 
+            valor_edital_edit = st.text_input(
+                "Valor do edital (R$)",
+                value=valor_edital_atual,
+                placeholder="Ex.: 1.234.567,89"
+            )
+
             data_lancamento_edit = st.date_input(
                 "Data de Lançamento",
                 value=data_edital,
@@ -305,45 +337,54 @@ with tabs[0]:
                     or not nome_edital_edit
                     or not data_lancamento_edit
                 ):
-                    st.error("Todos os campos são obrigatórios")
+                    st.error("Todos os campos obrigatórios devem ser preenchidos.")
 
                 else:
-                    # Extrai o ID da planilha a partir do endereço informado
-                    id_planilha_recebimento_edit = extrair_id_planilha(
-                        endereco_planilha_edit
-                    )
-
-                    if not id_planilha_recebimento_edit:
-                        st.error(
-                            "Informe um endereço válido de uma planilha Google Sheets."
+                    try:
+                        # Converte o valor monetário para float
+                        valor_edital = converter_valor_brasileiro(
+                            valor_edital_edit
                         )
 
-                    else:
-                        # Atualiza os dados do edital sem alterar os demais campos
-                        colecao_editais.update_one(
-                            {"_id": edital_selecionado["_id"]},
-                            {
-                                "$set": {
-                                    "codigo_edital": codigo_edital_edit,
-                                    "nome_edital": nome_edital_edit,
-                                    "data_lancamento": (
-                                        data_lancamento_edit.strftime("%d/%m/%Y")
-                                    ),
-                                    "id_planilha_recebimento": (
-                                        id_planilha_recebimento_edit
-                                    )
+                        # Extrai o ID da planilha a partir do endereço informado
+                        id_planilha_recebimento_edit = extrair_id_planilha(
+                            endereco_planilha_edit
+                        )
+
+                        if not id_planilha_recebimento_edit:
+                            st.error(
+                                "Informe um endereço válido de uma planilha Google Sheets."
+                            )
+
+                        else:
+                            # Atualiza somente os campos do formulário
+                            colecao_editais.update_one(
+                                {"_id": edital_selecionado["_id"]},
+                                {
+                                    "$set": {
+                                        "codigo_edital": codigo_edital_edit,
+                                        "nome_edital": nome_edital_edit,
+                                        "data_lancamento": (
+                                            data_lancamento_edit.strftime("%d/%m/%Y")
+                                        ),
+                                        "id_planilha_recebimento": (
+                                            id_planilha_recebimento_edit
+                                        ),
+                                        "valor_edital": float(valor_edital)
+                                    }
                                 }
-                            }
-                        )
+                            )
 
-                        st.success(
-                            "Edital atualizado com sucesso.",
-                            icon=":material/check:"
-                        )
+                            st.success(
+                                "Edital atualizado com sucesso.",
+                                icon=":material/check:"
+                            )
 
-                        time.sleep(3)
-                        st.rerun()
+                            time.sleep(3)
+                            st.rerun()
 
+                    except ValueError as erro:
+                        st.error(str(erro))
 
 ###########################################################################################################
 # ABA ESTÁGIOS
