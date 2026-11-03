@@ -1,6 +1,10 @@
 import streamlit as st
 import pandas as pd
 
+from funcoes_auxiliares import (
+    conectar_mongo_ieb_selecao
+)
+
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
@@ -29,6 +33,17 @@ with st.sidebar:
 
 
 ###########################################################################################################
+# CONEXÃO COM O BANCO DE DADOS
+###########################################################################################################
+
+db = conectar_mongo_ieb_selecao()
+col_pessoas = db["pessoas"]
+
+
+
+
+
+###########################################################################################################
 # FUNÇÕES AUXILIARES
 ###########################################################################################################
 
@@ -50,14 +65,6 @@ def renderizar_projeto(projeto, indice):
         )
 
         st.write(f"Projeto {projeto.get('Nome do projeto', 'Sem código')}")
-
-        # Conteúdo adicional do projeto será desenvolvido posteriormente.
-
-
-
-
-
-
 
 
 @st.cache_data()
@@ -137,29 +144,98 @@ else:
             try:
                 df_propostas = ler_planilha_google_sheets(id_planilha)
 
+
+
                 if df_propostas.empty:
                     st.info("Nenhuma proposta encontrada na planilha.")
 
                 else:
 
+                    ###########################################################################################################
+                    # FILTRAGEM DE PROJETOS CONFORME O TIPO DE USUÁRIO
+                    ###########################################################################################################
 
-                    st.markdown(f"##### {len(df_propostas)} propostas recebidas")
-                    st.write('')
+                    tipo_usuario = st.session_state.get("tipo_usuario", "")
 
+                    # Administradores e equipe visualizam todos os projetos.
+                    if tipo_usuario in ["admin", "equipe"]:
+                        df_projetos = df_propostas.copy()
 
-                    # Converte os registros do DataFrame em uma lista de dicionários.
-                    propostas = df_propostas.to_dict(orient="records")
+                    # Avaliadores visualizam somente os projetos atribuídos a eles.
+                    elif tipo_usuario == "avaliador":
 
+                        # Recupera o documento do avaliador.
+                        pessoa = col_pessoas.find_one(
+                            {"_id": st.session_state.get("id_usuario")},
+                            {"editais": 1}
+                        )
 
-                    
+                        codigos_projetos = set()
+
+                        if pessoa:
+
+                            # Localiza o edital selecionado no documento da pessoa.
+                            edital_pessoa = next(
+                                (
+                                    item for item in pessoa.get("editais", [])
+                                    if item.get("codigo_edital") == edital.get("codigo_edital")
+                                ),
+                                None
+                            )
+
+                            if edital_pessoa:
+
+                                # Recupera os códigos dos projetos atribuídos em todos os estágios.
+                                for estagio in edital_pessoa.get("estagios", []):
+                                    codigos_projetos.update(
+                                        estagio.get("projetos", [])
+                                    )
+
+                        # Filtra a planilha pelos códigos atribuídos ao avaliador.
+                        if "codigo_recebimento" in df_propostas.columns:
+
+                            df_projetos = df_propostas[
+                                df_propostas["codigo_recebimento"]
+                                .astype(str)
+                                .str.strip()
+                                .isin(codigos_projetos)
+                            ].copy()
+
+                        else:
+                            df_projetos = pd.DataFrame()
+
+                    # Outros tipos de usuário não possuem acesso à listagem.
+                    else:
+                        df_projetos = pd.DataFrame()
+
+                    ###########################################################################################################
                     # LISTAGEM DE PROJETOS
+                    ###########################################################################################################
 
-                    # Renderiza um fragmento individual para cada proposta.
-                    for indice, projeto in enumerate(propostas):
-                        renderizar_projeto(projeto, indice)
+                    if df_projetos.empty:
+
+                        if tipo_usuario == "avaliador":
+                            st.info("Nenhum projeto está atribuído a este avaliador neste edital.")
+                        else:
+                            st.warning("Este usuário não possui permissão para visualizar os projetos.")
+
+                    else:
+
+                        st.markdown(
+                            f"##### {len(df_projetos)} propostas recebidas"
+                        )
+                        st.write("")
+
+                        # Converte os registros do DataFrame em uma lista de dicionários.
+                        propostas = df_projetos.to_dict(orient="records")
+
+                        # Renderiza um fragmento individual para cada proposta.
+                        for indice, projeto in enumerate(propostas):
+                            renderizar_projeto(projeto, indice)
+
+
+
 
             except Exception as e:
                 st.error(f"Erro ao carregar a planilha de propostas: {e}")
-
-
 
