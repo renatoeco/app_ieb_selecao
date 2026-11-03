@@ -2,13 +2,16 @@ import streamlit as st
 import pandas as pd
 
 from funcoes_auxiliares import (
-    conectar_mongo_ieb_selecao
+    conectar_mongo_ieb_selecao,
+    container_cinza,
+    configurar_containers_cinza
 )
 
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
 
+configurar_containers_cinza()
 
 
 ###########################################################################################################
@@ -60,7 +63,7 @@ col_pessoas = db["pessoas"]
 def renderizar_projeto(projeto, indice):
     """Renderiza o container individual de uma proposta recebida."""
 
-    with st.container(border=True):
+    with container_cinza():
 
         # Identificação do projeto.
         codigo_recebimento = projeto.get("codigo_recebimento", "Sem código")

@@ -42,7 +42,8 @@ def configurar_containers_cinza():
                 border-radius: 10px !important;
                 padding: 15px !important;
                 box-sizing: border-box;
-                box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1), 0 6px 20px 0 rgba(0, 0, 0, 0.1);
+                # box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1), 0 6px 20px 0 rgba(0, 0, 0, 0.1);
+                box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1);
 
             }
         </style>
