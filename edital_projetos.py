@@ -76,6 +76,18 @@ def renderizar_projeto(projeto, indice):
         st.write(f"Projeto {projeto.get('Nome do projeto', 'Sem código')}")
 
 
+        # Botão para abrir a página de detalhes do projeto
+        if st.button(
+            "Ver projeto",
+            key=f"ver_projeto_{projeto.get('codigo_recebimento', indice)}",
+            icon=":material/visibility:",
+            type="secondary"
+        ):
+            st.session_state["projeto_atual"] = projeto
+            st.session_state["pagina_atual"] = "ver_projeto"
+            st.rerun()        
+
+
 @st.cache_data()
 def ler_planilha_google_sheets(id_planilha):
     """Lê os dados de uma planilha Google Sheets e retorna um DataFrame."""

@@ -516,7 +516,7 @@ else:
         },
 
 
-
+        # Ver lista de projetos
         "ver_projetos": [
             st.Page(
                 "edital_projetos.py",
@@ -529,6 +529,22 @@ else:
                 icon=":material/logout:"
             ),
         ],
+
+        # Ver projeto individual
+        "ver_projeto": [
+            st.Page(
+                "projeto.py",
+                title="Projeto",
+                icon=":material/description:"
+            ),
+            st.Page(
+                "sair.py",
+                title="Sair",
+                icon=":material/logout:"
+            ),
+        ],
+
+
     }
 
 
@@ -562,7 +578,8 @@ else:
         elif st.session_state.pagina_atual == "ver_projetos":
             pages = pags_por_tipo["ver_projetos"]
 
-
+        elif st.session_state.pagina_atual == "ver_projeto":
+            pages = pags_por_tipo["ver_projeto"]
 
 
     # ROTEAMENTO DA EQUIPE
@@ -577,6 +594,8 @@ else:
         elif st.session_state.pagina_atual == "ver_projetos":
             pages = pags_por_tipo["ver_projetos"]
 
+        elif st.session_state.pagina_atual == "ver_projeto":
+            pages = pags_por_tipo["ver_projeto"]
 
 
 
@@ -594,6 +613,8 @@ else:
         elif st.session_state.pagina_atual == "ver_projetos":
             pages = pags_por_tipo["ver_projetos"]
 
+        elif st.session_state.pagina_atual == "ver_projeto":
+            pages = pags_por_tipo["ver_projeto"]
 
 
 
