@@ -18,7 +18,52 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 
+import st_yled
+from itertools import count
 
+
+###########################################################################################################
+# CONTAINERS PERSONALIZADOS
+###########################################################################################################
+
+# Contador para identificação única dos containers
+_contador_containers = count()
+
+
+def configurar_containers_cinza():
+    """
+    Configura o arredondamento e o espaçamento interno dos containers.
+    """
+
+    st.markdown("""
+        <style>
+            /* Containers personalizados */
+            div[data-testid="stVerticalBlock"][class*="st-key-container_cinza"] {
+                border-radius: 10px !important;
+                padding: 15px !important;
+                box-sizing: border-box;
+                box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1), 0 6px 20px 0 rgba(0, 0, 0, 0.1);
+
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+
+def container_cinza():
+    """
+    Cria um container com fundo cinza e borda personalizada.
+    """
+
+    id_container = next(_contador_containers)
+
+    return st_yled.container(
+        key=f"container_cinza_{id_container}",
+        background_color="#FBFBFA",
+        border_style="solid",
+        border_color="#d0d0d0",
+        border_width="1px",
+        
+    )
 
 
 def formatar_valor_brasileiro(valor):

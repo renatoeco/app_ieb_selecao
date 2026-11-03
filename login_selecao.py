@@ -12,6 +12,23 @@ import bcrypt
 st.set_page_config(layout="wide")
 
 
+# Configurar cores
+
+# Cor do sidebar
+st.markdown("""
+    <style>
+        /* Cor de fundo do sidebar */
+        [data-testid="stSidebar"] {
+            background-color: #eaeaea;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+
+
+
+
+
 ##############################################################################################################
 # CONEXÃO COM O BANCO DE DADOS (MONGODB)
 ###############################################################################################################

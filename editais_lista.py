@@ -2,9 +2,12 @@
 import streamlit as st
 from funcoes_auxiliares import (
     conectar_mongo_ieb_selecao,
-    formatar_valor_brasileiro
+    formatar_valor_brasileiro,
+    container_cinza,
+    configurar_containers_cinza
 )
 
+configurar_containers_cinza()
 
 ###########################################################################################################
 # CONEXÃO COM O BANCO DE DADOS MONGODB
@@ -112,7 +115,7 @@ else:
     for edital in editais:
 
         # Organiza as informações de cada edital em um container com borda.
-        with st.container(border=True):
+        with container_cinza():
 
             # Apresenta o código e o nome do edital em um único título.
             st.markdown(
