@@ -1,8 +1,18 @@
 import streamlit as st
+import pandas as pd
+
+from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
+
+
+
 
 ###########################################################################################################
 # NAVEGAÇÃO
 ###########################################################################################################
+
+st.logo("images/logo_ieb.svg", size='large')
+
 
 # Permite retornar à listagem original de editais.
 with st.sidebar:
@@ -15,6 +25,81 @@ with st.sidebar:
         st.session_state.pop("edital_selecionado", None)
         st.rerun()
 
+
+
+
+###########################################################################################################
+# FUNÇÕES AUXILIARES
+###########################################################################################################
+
+@st.fragment
+def renderizar_projeto(projeto, indice):
+    """Renderiza o container individual de uma proposta recebida."""
+
+    with st.container(border=True):
+
+        # Identificação da organização.
+        sigla = projeto.get("Sigla da organização", "Sem sigla")
+        nome_org = projeto.get("Nome da organização", "Organização sem nome")
+
+        st.markdown(f"##### {sigla} - {nome_org}")
+
+        st.write(f"Projeto {projeto.get('Nome do projeto', 'Sem código')}")
+
+        # Conteúdo adicional do projeto será desenvolvido posteriormente.
+
+
+
+
+
+
+
+
+@st.cache_data()
+def ler_planilha_google_sheets(id_planilha):
+    """Lê os dados de uma planilha Google Sheets e retorna um DataFrame."""
+
+    # Configura as credenciais de acesso à API do Google Sheets.
+    scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+
+    credenciais = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=scopes
+    )
+
+    # Estabelece a conexão com a API.
+    service = build("sheets", "v4", credentials=credenciais)
+
+    # Recupera os dados da planilha.
+    resultado = service.spreadsheets().values().get(
+        spreadsheetId=id_planilha,
+        range="A:ZZ"
+    ).execute()
+
+    valores = resultado.get("values", [])
+
+    if not valores:
+        return pd.DataFrame()
+
+    # Utiliza a primeira linha como cabeçalho.
+    df = pd.DataFrame(
+        valores[1:],
+        columns=valores[0]
+    )
+
+    return df
+
+
+
+
+
+
+
+###########################################################################################################
+# INTERFACE
+###########################################################################################################
+
+
 ###########################################################################################################
 # IDENTIFICAÇÃO DO EDITAL SELECIONADO
 ###########################################################################################################
@@ -23,18 +108,54 @@ edital = st.session_state.get("edital_selecionado")
 
 if not edital:
     st.warning("Nenhum edital foi selecionado.")
-    st.stop()
 
-st.header("Projetos do edital")
-st.subheader(
-    f"{edital.get('codigo_edital', 'Não informado')} - "
-    f"{edital.get('nome_edital', 'Edital sem nome')}"
-)
+else:
+    st.header("Projetos do edital")
+    st.subheader(
+        f"{edital.get('codigo_edital', 'Não informado')} - "
+        f"{edital.get('nome_edital', 'Edital sem nome')}"
+    )
 
-st.divider()
+    st.write('')
 
-###########################################################################################################
-# LISTAGEM DE PROJETOS
-###########################################################################################################
+    ###########################################################################################################
+    # CARREGAMENTO DAS PROPOSTAS RECEBIDAS
+    ###########################################################################################################
 
-# Inserir aqui a consulta ao MongoDB e a interface de listagem dos projetos.
+
+    id_planilha = edital.get("id_planilha_recebimento")
+
+    if not id_planilha:
+        st.warning("Este edital não possui uma planilha de recebimento cadastrada.")
+
+    else:
+        with st.spinner("Carregando propostas recebidas..."):
+            try:
+                df_propostas = ler_planilha_google_sheets(id_planilha)
+
+                if df_propostas.empty:
+                    st.info("Nenhuma proposta encontrada na planilha.")
+
+                else:
+
+
+                    st.markdown(f"##### {len(df_propostas)} propostas recebidas")
+                    st.write('')
+
+
+                    # Converte os registros do DataFrame em uma lista de dicionários.
+                    propostas = df_propostas.to_dict(orient="records")
+
+
+                    
+                    # LISTAGEM DE PROJETOS
+
+                    # Renderiza um fragmento individual para cada proposta.
+                    for indice, projeto in enumerate(propostas):
+                        renderizar_projeto(projeto, indice)
+
+            except Exception as e:
+                st.error(f"Erro ao carregar a planilha de propostas: {e}")
+
+
+
