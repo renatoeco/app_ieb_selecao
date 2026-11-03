@@ -17,6 +17,7 @@ from googleapiclient.discovery import build
 
 st.logo("images/logo_ieb.svg", size='large')
 
+tipo_usuario = st.session_state["tipo_usuario"]
 
 # Permite retornar à listagem original de editais.
 with st.sidebar:
@@ -26,11 +27,11 @@ with st.sidebar:
         type="secondary"
     ):
 
-        if st.session_state.tipo_usuario == "admin":
+        if tipo_usuario == "admin":
         
             st.session_state["pagina_atual"] = "home_admin"
 
-        elif st.session_state.tipo_usuario == "avaliador":
+        elif tipo_usuario == "avaliador":
         
             st.session_state["pagina_atual"] = "home_avaliador"
 
@@ -137,6 +138,42 @@ else:
 
     st.write('')
 
+
+
+    ###########################################################################################################
+    # MODO DE VISUALIZAÇÃO
+    ###########################################################################################################
+
+
+    # Inicializa o estado do toggle para administradores e equipe.
+    if "_toggle_minhas_avaliacoes" not in st.session_state:
+        st.session_state["_toggle_minhas_avaliacoes"] = False
+
+    # Administradores e equipe podem alternar entre os dois modos.
+    if tipo_usuario in ["admin", "equipe"]:
+
+        with st.container(horizontal=True, horizontal_alignment="right"):
+            st.toggle(
+                "Minhas avaliações",
+                key="_toggle_minhas_avaliacoes"
+            )
+
+        if st.session_state["_toggle_minhas_avaliacoes"]:
+            st.session_state["modo_projetos"] = "minhas_avaliacoes"
+        else:
+            st.session_state["modo_projetos"] = "todos_projetos"
+
+    # Avaliadores acessam exclusivamente suas avaliações.
+    elif tipo_usuario == "avaliador":
+
+        st.session_state["modo_projetos"] = "minhas_avaliacoes"
+
+    else:
+        st.session_state["modo_projetos"] = "sem_acesso"
+
+    modo_projetos = st.session_state["modo_projetos"]
+
+
     ###########################################################################################################
     # CARREGAMENTO DAS PROPOSTAS RECEBIDAS
     ###########################################################################################################
@@ -159,20 +196,21 @@ else:
 
                 else:
 
+
+
                     ###########################################################################################################
-                    # FILTRAGEM DE PROJETOS CONFORME O TIPO DE USUÁRIO
+                    # FILTRAGEM DE PROJETOS CONFORME O MODO DE VISUALIZAÇÃO
                     ###########################################################################################################
 
-                    tipo_usuario = st.session_state.get("tipo_usuario", "")
+                    # Todos os projetos do edital.
+                    if modo_projetos == "todos_projetos":
 
-                    # Administradores e equipe visualizam todos os projetos.
-                    if tipo_usuario in ["admin", "equipe"]:
                         df_projetos = df_propostas.copy()
 
-                    # Avaliadores visualizam somente os projetos atribuídos a eles.
-                    elif tipo_usuario == "avaliador":
+                    # Somente projetos atribuídos ao usuário conectado.
+                    elif modo_projetos == "minhas_avaliacoes":
 
-                        # Recupera o documento do avaliador.
+                        # Recupera o documento da pessoa conectada.
                         pessoa = col_pessoas.find_one(
                             {"_id": st.session_state.get("id_usuario")},
                             {"editais": 1}
@@ -196,10 +234,12 @@ else:
                                 # Recupera os códigos dos projetos atribuídos em todos os estágios.
                                 for estagio in edital_pessoa.get("estagios", []):
                                     codigos_projetos.update(
-                                        estagio.get("projetos", [])
+                                        str(codigo).strip()
+                                        for codigo in estagio.get("projetos", [])
+                                        if codigo is not None
                                     )
 
-                        # Filtra a planilha pelos códigos atribuídos ao avaliador.
+                        # Filtra a planilha pelos códigos atribuídos à pessoa.
                         if "codigo_recebimento" in df_propostas.columns:
 
                             df_projetos = df_propostas[
@@ -216,14 +256,16 @@ else:
                     else:
                         df_projetos = pd.DataFrame()
 
+
+
                     ###########################################################################################################
                     # LISTAGEM DE PROJETOS
                     ###########################################################################################################
 
                     if df_projetos.empty:
 
-                        if tipo_usuario == "avaliador":
-                            st.info("Nenhum projeto está atribuído a este avaliador neste edital.")
+                        if modo_projetos == "minhas_avaliacoes":
+                            st.info("Nenhum projeto está atribuído a este usuário neste edital.")
                         else:
                             st.warning("Este usuário não possui permissão para visualizar os projetos.")
 
@@ -240,7 +282,6 @@ else:
                         # Renderiza um fragmento individual para cada proposta.
                         for indice, projeto in enumerate(propostas):
                             renderizar_projeto(projeto, indice)
-
 
 
 
