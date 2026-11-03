@@ -120,55 +120,41 @@ else:
                 f"{edital.get('nome_edital', 'Edital sem nome')}"
             )
 
-            # Distribui as informações do edital em duas colunas.
-            col1, col2 = st.columns(2)
+
+
+            # Distribui as informações do edital em colunas.
+            col1, col2, col3 = st.columns(3)
+
+
 
             with col1:
+
+                # Data de lançamento
                 st.markdown(
                     f"**Data de lançamento:** "
                     f"{edital.get('data_lancamento', 'Não informada')}"
                 )
 
-                valor_edital = edital.get("valor_edital")
+                # Estágios
+                estagios = edital.get("estagios", [])
 
-                if valor_edital is None:
-                    valor_formatado = "Não informado"
-                else:
-                    valor_formatado = (
-                        f"R$ {formatar_valor_brasileiro(valor_edital)}"
-                    )
+                with st.popover(
+                    f"Estágios ({len(estagios)})",
+                    type="tertiary"
+                ):
+                    renderizar_estagios(estagios)
 
-                st.markdown(
-                    f"**Valor do edital:** {valor_formatado}"
-                )
-
-                # Disponibiliza os estágios e as tags em popovers.
-                col_estagios, col_tags = st.columns(2)
-
-                with col_estagios:
-                    estagios = edital.get("estagios", [])
-
-                    with st.popover(
-                        f"Estágios ({len(estagios)})",
-                        type="tertiary"
-                    ):
-                        renderizar_estagios(estagios)
-
-                with col_tags:
-                    tags = edital.get("tags", [])
-
-                    with st.popover(
-                        f"Tags ({len(tags)})",
-                        type="tertiary"
-                    ):
-                        renderizar_tags(tags)
 
 
             with col2:
+
+                # Data de encerramento
                 st.markdown(
                     f"**Data de encerramento:** "
                     f"{edital.get('data_encerramento', 'Não informada')}"
                 )
+
+
 
                 # Recupera os projetos vinculados ao edital.
                 projetos_recebidos = list(
@@ -195,6 +181,40 @@ else:
                             st.markdown(f"- **{sigla}** - {nome}")
                     else:
                         st.caption("Nenhum projeto recebido.")
+
+
+
+
+            with col3:
+
+                # Valor do edital
+                valor_edital = edital.get("valor_edital")
+
+                if valor_edital is None:
+                    valor_formatado = "Não informado"
+                else:
+                    valor_formatado = (
+                        f"R$ {formatar_valor_brasileiro(valor_edital)}"
+                    )
+
+                st.markdown(
+                    f"**Valor do edital:** {valor_formatado}"
+                )
+
+
+                # Tags
+                tags = edital.get("tags", [])
+
+                with st.popover(
+                    f"Tags ({len(tags)})",
+                    type="tertiary"
+                ):
+                    renderizar_tags(tags)
+
+
+
+
+
 
 
 
