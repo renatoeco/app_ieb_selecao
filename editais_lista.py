@@ -14,7 +14,7 @@ from funcoes_auxiliares import (
 db = conectar_mongo_ieb_selecao()
 
 colecao_editais = db["editais"]
-
+colecao_projetos = db["projetos"]
 
 ###########################################################################################################
 # FUNÇÕES AUXILIARES
@@ -107,6 +107,7 @@ else:
     st.write(f"{quantidade_editais} {texto_editais}.")
 
 
+    # Lista os editais
     for edital in editais:
 
         # Organiza as informações de cada edital em um container com borda.
