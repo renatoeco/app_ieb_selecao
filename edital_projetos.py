@@ -38,11 +38,16 @@ def renderizar_projeto(projeto, indice):
 
     with st.container(border=True):
 
-        # Identificação da organização.
+        # Identificação do projeto.
+        codigo_recebimento = projeto.get("codigo_recebimento", "Sem código")
         sigla = projeto.get("Sigla da organização", "Sem sigla")
         nome_org = projeto.get("Nome da organização", "Organização sem nome")
 
-        st.markdown(f"##### {sigla} - {nome_org}")
+        st.markdown(
+            f'<span style="color: #2F5AA1; font-weight: bold;">{codigo_recebimento}</span> - '
+            f'**{sigla}** - {nome_org}',
+            unsafe_allow_html=True
+        )
 
         st.write(f"Projeto {projeto.get('Nome do projeto', 'Sem código')}")
 
@@ -110,8 +115,7 @@ if not edital:
     st.warning("Nenhum edital foi selecionado.")
 
 else:
-    st.header("Projetos do edital")
-    st.subheader(
+    st.subheader("Projetos do edital "
         f"{edital.get('codigo_edital', 'Não informado')} - "
         f"{edital.get('nome_edital', 'Edital sem nome')}"
     )
