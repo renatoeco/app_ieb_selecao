@@ -85,10 +85,9 @@ def ler_planilha_google_sheets(id_planilha):
 
 
 
-
 def carregar_projetos(df_recebidos_sheet, colecao_projetos, codigo_edital):
     """
-    Carrega projetos a partir do dataframe.
+    Carrega projetos a partir da planilha de recebimento.
     Retorna lista de códigos que foram adicionados.
     """
 
@@ -114,15 +113,19 @@ def carregar_projetos(df_recebidos_sheet, colecao_projetos, codigo_edital):
         if codigo in existentes:
             continue
 
-        # Insere novo projeto
+        # Insere novo projeto com os dados da organização
         colecao_projetos.insert_one({
             "codigo_recebimento": codigo,
-            "codigo_edital": codigo_edital
+            "codigo_edital": codigo_edital,
+            "sigla_organizacao": linha.get("Sigla da organização"),
+            "nome_organizacao": linha.get("Nome da organização")
         })
 
         adicionados.append(codigo)
 
     return adicionados
+
+
 
 
 

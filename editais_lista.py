@@ -99,6 +99,7 @@ editais = list(
 if not editais:
     st.info("Nenhum edital cadastrado.")
 
+
 else:
 
     # Apresenta a quantidade de editais com concordância de número.
@@ -162,11 +163,43 @@ else:
                     ):
                         renderizar_tags(tags)
 
+
             with col2:
                 st.markdown(
                     f"**Data de encerramento:** "
                     f"{edital.get('data_encerramento', 'Não informada')}"
                 )
+
+                # Recupera os projetos vinculados ao edital.
+                projetos_recebidos = list(
+                    colecao_projetos.find(
+                        {"codigo_edital": edital.get("codigo_edital")},
+                        {
+                            "_id": 0,
+                            "sigla_organizacao": 1,
+                            "nome_organizacao": 1
+                        }
+                    ).sort("Sigla da organização", 1)
+                )
+
+                # Apresenta a relação de projetos recebidos.
+                with st.popover(
+                    f"Projetos recebidos ({len(projetos_recebidos)})",
+                    type="tertiary"
+                ):
+                    if projetos_recebidos:
+                        for projeto in projetos_recebidos:
+                            sigla = projeto.get("sigla_organizacao", "Sem sigla")
+                            nome = projeto.get("nome_organizacao", "Organização sem nome")
+
+                            st.markdown(f"- **{sigla}** - {nome}")
+                    else:
+                        st.caption("Nenhum projeto recebido.")
+
+
+
+
+
 
 
             # Botão para abrir edital e ver projetos
