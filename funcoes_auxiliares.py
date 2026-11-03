@@ -22,13 +22,10 @@ import st_yled
 from itertools import count
 
 
-###########################################################################################################
 # CONTAINERS PERSONALIZADOS
-###########################################################################################################
 
 # Contador para identificação única dos containers
 _contador_containers = count()
-
 
 def configurar_containers_cinza():
     """
@@ -49,7 +46,6 @@ def configurar_containers_cinza():
         </style>
     """, unsafe_allow_html=True)
 
-
 def container_cinza():
     """
     Cria um container com fundo cinza e borda personalizada.
@@ -65,6 +61,7 @@ def container_cinza():
         border_width="1px",
         
     )
+
 
 
 def formatar_valor_brasileiro(valor):
