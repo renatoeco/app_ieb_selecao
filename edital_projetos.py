@@ -25,7 +25,15 @@ with st.sidebar:
         icon=":material/arrow_back:",
         type="secondary"
     ):
-        st.session_state["pagina_atual"] = "home_admin"
+
+        if st.session_state.tipo_usuario == "admin":
+        
+            st.session_state["pagina_atual"] = "home_admin"
+
+        elif st.session_state.tipo_usuario == "avaliador":
+        
+            st.session_state["pagina_atual"] = "home_avaliador"
+
         st.session_state.pop("edital_selecionado", None)
         st.rerun()
 

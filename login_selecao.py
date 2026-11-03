@@ -490,6 +490,33 @@ else:
             ],
         },
 
+
+        "home_avaliador": {
+
+            "Editais": [
+                st.Page(
+                    "editais_lista.py",
+                    title="Editais",
+                    icon=":material/analytics:"
+                ),
+                st.Page(
+                    "editais_gerenciar.py",
+                    title="Gerenciar",
+                    icon=":material/settings:"
+                ),
+            ],
+
+            "Sessão": [
+                st.Page(
+                    "sair.py",
+                    title="Sair",
+                    icon=":material/logout:"
+                ),
+            ],
+        },
+
+
+
         "ver_projetos": [
             st.Page(
                 "edital_projetos.py",
@@ -536,25 +563,6 @@ else:
             pages = pags_por_tipo["ver_projetos"]
 
 
-    # # ROTEAMENTO DO ADMIN ---------------------------------
-    # if tipo_usuario == "admin":
-        
-    #     # Página inicial do admin 
-
-    #     # Primeira execução: 
-    #     # se pagina_atual == None, a pagina atual será home_admin
-    #     if st.session_state.pagina_atual is None:
-    #         st.session_state.pagina_atual = "home_admin"
-
-    #     # Demais execuções
-    #     # Home do admin
-    #     if st.session_state.pagina_atual == "home_admin":
-    #         pages = pags_por_tipo["home_admin"]
-
-    #     # Admin visita projetos
-    #     elif st.session_state.pagina_atual == "ver_projeto":
-    #         pages = pags_por_tipo["ver_projeto"]
-
 
 
     # ROTEAMENTO DA EQUIPE
@@ -570,22 +578,21 @@ else:
             pages = pags_por_tipo["ver_projetos"]
 
 
-    # # ROTEAMENTO DA EQUIPE ---------------------------------
-    # elif tipo_usuario == "equipe":
-        
-    #     # Primeira execução: 
-    #     # se pagina_atual == None, a pagina atual será home_equipe
-    #     if st.session_state.pagina_atual is None:
-    #         st.session_state.pagina_atual = "home_equipe"
 
-    #     # Demais execuções
-    #     # Home da equipe
-    #     if st.session_state.pagina_atual == "home_equipe":
-    #         pages = pags_por_tipo["home_equipe"]
 
-    #     # Equipe visita projetos
-    #     elif st.session_state.pagina_atual == "ver_projeto":
-    #         pages = pags_por_tipo["ver_projeto"]
+
+
+    # ROTEAMENTO DO AVALIADOR
+    elif tipo_usuario == "avaliador":
+
+        if st.session_state.pagina_atual is None:
+            st.session_state.pagina_atual = "home_avaliador"
+
+        if st.session_state.pagina_atual == "home_avaliador":
+            pages = pags_por_tipo["home_avaliador"]
+
+        elif st.session_state.pagina_atual == "ver_projetos":
+            pages = pags_por_tipo["ver_projetos"]
 
 
 
