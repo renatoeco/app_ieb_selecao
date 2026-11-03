@@ -19,13 +19,9 @@ from email.mime.text import MIMEText
 
 
 import st_yled
-from itertools import count
+from uuid import uuid4
 
 
-# CONTAINERS PERSONALIZADOS
-
-# Contador para identificação única dos containers
-_contador_containers = count()
 
 def configurar_containers_cinza():
     """
@@ -36,11 +32,11 @@ def configurar_containers_cinza():
         <style>
             /* Containers personalizados */
             div[data-testid="stVerticalBlock"][class*="st-key-container_cinza"] {
-                border-radius: 10px !important;
-                padding: 15px !important;
+                border-radius: 0.5rem !important;
+                padding: 1rem !important;
                 box-sizing: border-box;
-                # box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1), 0 6px 20px 0 rgba(0, 0, 0, 0.1);
                 box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1);
+                # box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1), 0 6px 20px 0 rgba(0, 0, 0, 0.1);
 
             }
         </style>
@@ -51,16 +47,14 @@ def container_cinza():
     Cria um container com fundo cinza e borda personalizada.
     """
 
-    id_container = next(_contador_containers)
-
     return st_yled.container(
-        key=f"container_cinza_{id_container}",
-        background_color="#FBFBFA",
+        key=f"container_cinza_{uuid4().hex}",
+        background_color="#eaeaea",
         border_style="solid",
         border_color="#d0d0d0",
         border_width="1px",
-        
     )
+
 
 
 
