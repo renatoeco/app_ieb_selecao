@@ -1,3 +1,20 @@
 [theme]
-primaryColor = "#2F5AA1"
-backgroundColor = "#e0e0e0"
+# Cor principal dos componentes
+primaryColor = "#1e5aa6"
+
+# Cor de fundo principal do aplicativo
+backgroundColor = "#fafafa"
+#backgroundColor = "#fbfbfb"
+
+# Cor de fundo secundária (containers, cards e áreas auxiliares)
+#secondaryBackgroundColor = "#F0F2F6"
+secondaryBackgroundColor = "#f1f2f6"
+
+
+
+# Fonte principal
+#font = "sans serif"
+font = "Alegreya Sans:https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;600;700;800&display=swap"
+
+# Fonte dos títulos
+#headingFont = "Poppins:https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"

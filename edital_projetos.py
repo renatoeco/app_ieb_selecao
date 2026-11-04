@@ -78,17 +78,17 @@ def renderizar_projeto(projeto, indice):
 
         st.write(f"Projeto {projeto.get('Nome do projeto', 'Sem código')}")
 
-
-        # Botão para abrir a página de detalhes do projeto
-        if st.button(
-            "Ver projeto",
-            key=f"ver_projeto_{projeto.get('codigo_recebimento', indice)}",
-            icon=":material/visibility:",
-            type="secondary"
-        ):
-            st.session_state["projeto_atual"] = projeto
-            st.session_state["pagina_atual"] = "ver_projeto"
-            st.rerun()        
+        with st.container(horizontal=True, horizontal_alignment="right"):
+            # Botão para abrir a página de detalhes do projeto
+            if st.button(
+                "Ver projeto",
+                key=f"ver_projeto_{projeto.get('codigo_recebimento', indice)}",
+                icon=":material/visibility:",
+                type="primary"
+            ):
+                st.session_state["projeto_atual"] = projeto
+                st.session_state["pagina_atual"] = "ver_projeto"
+                st.rerun()        
 
 
 @st.cache_data()

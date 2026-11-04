@@ -49,7 +49,7 @@ def container_cinza():
 
     return st_yled.container(
         key=f"container_cinza_{uuid4().hex}",
-        background_color="#eaeaea",
+        background_color="#fefefe",
         border_style="solid",
         border_color="#d0d0d0",
         border_width="1px",

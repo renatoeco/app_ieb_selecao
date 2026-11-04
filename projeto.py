@@ -39,7 +39,7 @@ else:
     st.markdown(
         f"""
         <h2>
-            <span style="color: #10A37F;">{codigo}</span> {sigla}
+            <span style="color: #1e5aa6;">{codigo}</span> {sigla}
         </h2>
         """,
         unsafe_allow_html=True
@@ -47,7 +47,7 @@ else:
 
     if organizacao:
         st.markdown(
-            f"<h3 style='color: #10A37F;'>{organizacao}</h3>",
+            f"<h3 style='color: #1e5aa6;'>{organizacao}</h3>",
             unsafe_allow_html=True
         )
 

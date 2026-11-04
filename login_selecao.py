@@ -6,23 +6,67 @@ import smtplib
 from email.mime.text import MIMEText  
 from funcoes_auxiliares import conectar_mongo_ieb_selecao  # Função personalizada para conectar ao MongoDB
 import bcrypt
+import base64
+
+# ##############################################################################################################
+# CONFIGURAÇÕES DE ESTILO DO STREAMLIT
+# ##############################################################################################################
 
 
-# Configurar o streamlit para tela wide
-st.set_page_config(layout="wide")
 
+# Carrega a imagem de fundo
+with open("images/teste_hero.jpeg", "rb") as arquivo:
+    imagem_base64 = base64.b64encode(arquivo.read()).decode("utf-8")
 
-# Configurar cores
+# Esconde menu e cabeçalho e configura o CSS
+st.markdown(f"""
+<style>
 
-# Cor do sidebar
-st.markdown("""
-    <style>
-        /* Cor de fundo do sidebar */
-        [data-testid="stSidebar"] {
-            background-color: #eaeaea;
-        }
-    </style>
+header {{
+    visibility: hidden;
+}}
+
+.stApp {{
+    background-image:
+        linear-gradient(rgba(0,0,0,.15), rgba(0,0,0,.15)),
+        url("data:image/jpeg;base64,{imagem_base64}");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+}}
+
+/* Remove espaçamentos */
+.block-container {{
+    padding-top: 0rem;
+    padding-bottom: 0rem;
+    padding-left: 0rem;
+    padding-right: 0rem;
+    max-width: 100%;
+}}
+
+/* Espaçamento superior */
+.login-wrapper {{
+    height: 15vh;
+}}
+
+div[data-testid="stHorizontalBlock"] > div:nth-child(2) > div[data-testid="stVerticalBlock"] {{
+    background: white;
+    padding: 35px;
+    border-radius: 20px;
+    box-shadow: 0 15px 40px rgba(0,0,0,.30);
+}}
+
+.rodape {{
+    text-align: center;
+    color: #999;
+    margin-top: 30px;
+    font-size: 13px;
+}}
+
+</style>
 """, unsafe_allow_html=True)
+
 
 
 
