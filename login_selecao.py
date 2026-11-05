@@ -4,72 +4,22 @@ import time
 import random  
 import smtplib  
 from email.mime.text import MIMEText  
-from funcoes_auxiliares import conectar_mongo_ieb_selecao  # Função personalizada para conectar ao MongoDB
+from funcoes_auxiliares import (
+    container_cinza,
+    configurar_containers_cinza,
+    conectar_mongo_ieb_selecao
+)  
 import bcrypt
 import base64
 
-# ##############################################################################################################
-# CONFIGURAÇÕES DE ESTILO DO STREAMLIT
-# ##############################################################################################################
-
-
-
-# Carrega a imagem de fundo
-with open("images/teste_hero.jpeg", "rb") as arquivo:
-    imagem_base64 = base64.b64encode(arquivo.read()).decode("utf-8")
-
-# Esconde menu e cabeçalho e configura o CSS
-st.markdown(f"""
-<style>
-
-header {{
-    visibility: hidden;
-}}
-
-.stApp {{
-    background-image:
-        linear-gradient(rgba(0,0,0,.15), rgba(0,0,0,.15)),
-        url("data:image/jpeg;base64,{imagem_base64}");
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
-}}
-
-/* Remove espaçamentos */
-.block-container {{
-    padding-top: 0rem;
-    padding-bottom: 0rem;
-    padding-left: 0rem;
-    padding-right: 0rem;
-    max-width: 100%;
-}}
-
-/* Espaçamento superior */
-.login-wrapper {{
-    height: 15vh;
-}}
-
-div[data-testid="stHorizontalBlock"] > div:nth-child(2) > div[data-testid="stVerticalBlock"] {{
-    background: white;
-    padding: 35px;
-    border-radius: 20px;
-    box-shadow: 0 15px 40px rgba(0,0,0,.30);
-}}
-
-.rodape {{
-    text-align: center;
-    color: #999;
-    margin-top: 30px;
-    font-size: 13px;
-}}
-
-</style>
-""", unsafe_allow_html=True)
 
 
 
 
+# page_config layout wide
+st.set_page_config(layout="wide")
+
+configurar_containers_cinza()
 
 
 
@@ -88,6 +38,8 @@ col_pessoas = db["pessoas"]
 ##############################################################################################################
 # FUNÇÕES AUXILIARES
 ##############################################################################################################
+
+
 
 def validar_senha(senha: str) -> bool:
     """Valida se a senha tem pelo menos 8 caracteres, contém letras e números."""
@@ -340,121 +292,201 @@ def recuperar_senha_dialog():
 # TELA DE LOGIN
 ##############################################################################################################
 
+
 def login():
 
-    # st.image("images/logo_ISPN_horizontal_ass.png", width=300)
-    
-    # Exibe o logo
-    container_logo = st.container(horizontal=True, horizontal_alignment="center")
-    container_logo.image("images/logo_ieb.svg", width=300)
+    # ##############################################################################################################
+    # CONFIGURAÇÕES DE ESTILO DA TELA DE LOGIN
+    # ##############################################################################################################
 
-    st.write('')
-    st.write('')
-    st.write('')
-    st.write('')
-    st.write('')
+    # Carrega a imagem de fundo
+    with open("images/imagem_login_hero.jpeg", "rb") as arquivo:
+        imagem_base64 = base64.b64encode(arquivo.read()).decode("utf-8")
 
-    # CSS para centralizar e estilizar
-    st.markdown(
-        """
-        <h2 style='text-align: center; color: slategray;'>
-            Plataforma de Seleção de Projetos do IEB
-        </h2>
-        """,
-        unsafe_allow_html=True
-    )
+    # Identificador e CSS exclusivos da tela de login
+    st.markdown(f"""
+    <div id="login-page-marker"></div>
 
-    # Pula 7 linhas
-    for _ in range(7):
-        st.write('')
+    <style>
+
+    /* Esconde o cabeçalho */
+    .stApp:has(#login-page-marker) header {{
+        visibility: hidden;
+    }}
+
+    /* Imagem de fundo */
+    .stApp:has(#login-page-marker) {{
+        background-image:
+            linear-gradient(rgba(0,0,0,.15), rgba(0,0,0,.15)),
+            url("data:image/jpeg;base64,{imagem_base64}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }}
+
+    /* Remove espaçamentos */
+    .stApp:has(#login-page-marker) .block-container {{
+        padding-top: 15vh;
+        padding-bottom: 0;
+        padding-left: 0;
+        padding-right: 0;
+        max-width: 100%;
+    }}
+
+    /* Card de login */
+    .stApp:has(#login-page-marker) div[data-testid="stHorizontalBlock"] > div:nth-child(2) > div[data-testid="stVerticalBlock"] {{
+        background: white;
+        padding: 35px;
+        border-radius: 20px;
+        box-shadow: 0 15px 40px rgba(0,0,0,.30);
+    }}
+
+    /* Rodapé */
+    .stApp:has(#login-page-marker) .rodape {{
+        text-align: center;
+        color: #999;
+        margin-top: 30px;
+        font-size: 13px;
+    }}
+
+    </style>
+    """, unsafe_allow_html=True)
 
 
-    esq, centro, dir = st.columns([2, 1, 2])
-
-    with centro.form("login_form", border=False):
-        # Campo de e-mail
-        email_input = st.text_input("E-mail", width="stretch")
-
-        # Campo de senha
-        password = st.text_input("Senha", type="password", width="stretch")
-
-        if st.form_submit_button("Entrar", type="primary", width=100):
-            # Busca apenas pelo e-mail
-            usuario_encontrado = col_pessoas.find_one({
-                "e_mail": {"$regex": f"^{email_input.strip()}$", "$options": "i"}
-            })
-
-            # Salva o email para possível recuperação de senha
-            st.session_state["email_para_recuperar"] = email_input.strip()
-
-            if usuario_encontrado:
-                senha_hash = usuario_encontrado.get("senha")
-
-                # Forma segura: só aceita hashes válidos (bytes)
-                if isinstance(senha_hash, bytes) and bcrypt.checkpw(password.encode("utf-8"), senha_hash):
-                    if usuario_encontrado.get("status", "").lower() != "ativo":
-                        with st.container(width=300):
-                            st.error("Usuário inativo. Entre em contato com o a equipe do CEPF.")
-
-                        st.stop()
-
-                    # tipo_usuario = usuario_encontrado.get("tipo_usuario", [])
-                    tipo_usuario = usuario_encontrado.get("tipo_usuario", "")
 
 
-                    # Autentica
-                    st.session_state["logged_in"] = True
-                    st.session_state["tipo_usuario"] = tipo_usuario
-                    st.session_state["nome"] = usuario_encontrado.get("nome_completo")
-                    # st.session_state["cpf"] = usuario_encontrado.get("CPF")
-                    st.session_state["id_usuario"] = usuario_encontrado.get("_id")
-                    st.session_state["projetos"] = usuario_encontrado.get("projetos", [])
-                    st.rerun()
-                else:
-                    # Senha inválida ou não hashada corretamente
-                    st.error("E-mail ou senha inválidos!", width=300)
-            else:
-                st.error("E-mail ou senha inválidos!", width=300)
+    # ##############################################################################################################
+    # FORMULÁRIO DE LOGIN
+    # ##############################################################################################################
 
-    st.write('')
-    st.write('')
+    # # Colunas para centralização
+    # esq, centro, dir = st.columns([2, 2, 2])
 
-    with centro.container(horizontal=True, horizontal_alignment="left", gap="large"):
+    # with centro.form("login_form", border=False):
 
-        # Botão para recuperar senha
-        st.button(
-            "Esqueci a senha", 
-            key="forgot_password", 
-            type="tertiary", 
-            on_click=recuperar_senha_dialog
-        )
 
-        
 
-        # Botão de primeiro acesso
-        st.button(
-            "Primeiro acesso", 
-            key="primeiro_acesso", 
-            type="tertiary", 
-            on_click=primeiro_acesso_dialog
-        )
+    with st.container(horizontal=True, horizontal_alignment="center"):
+
+        with container_cinza(width=350):
+
+            # Logo centralizada
+            with st.container(horizontal=True, horizontal_alignment="center"):
+                st.image("images/logo_ieb.svg", width=230)
+
+            st.write("")
+
+            # Formulário de autenticação
+            with st.form("login_form", border=False):
+
+                # Campo de e-mail
+                email_input = st.text_input(
+                    "E-mail",
+                    width="stretch"
+                )
+
+                # Campo de senha
+                password = st.text_input(
+                    "Senha",
+                    type="password",
+                    width="stretch"
+                )
+
+                st.write('')
+
+                # Autenticação
+                if st.form_submit_button("Entrar", type="primary", width="stretch"):
+
+                    # Busca pelo e-mail
+                    usuario_encontrado = col_pessoas.find_one({
+                        "e_mail": {
+                            "$regex": f"^{email_input.strip()}$",
+                            "$options": "i"
+                        }
+                    })
+
+                    # Salva o e-mail para possível recuperação de senha
+                    st.session_state["email_para_recuperar"] = email_input.strip()
+
+                    if usuario_encontrado:
+
+                        senha_hash = usuario_encontrado.get("senha")
+
+                        # Verifica a senha
+                        if (
+                            isinstance(senha_hash, bytes)
+                            and bcrypt.checkpw(
+                                password.encode("utf-8"),
+                                senha_hash
+                            )
+                        ):
+
+                            # Verifica o status do usuário
+                            if usuario_encontrado.get("status", "").lower() != "ativo":
+
+                                st.error(
+                                    "Usuário inativo. Entre em contato com a equipe do CEPF."
+                                )
+
+                                st.stop()
+
+                            # Recupera o tipo de usuário
+                            tipo_usuario = usuario_encontrado.get("tipo_usuario", "")
+
+                            # Registra a autenticação
+                            st.session_state["logged_in"] = True
+                            st.session_state["tipo_usuario"] = tipo_usuario
+                            st.session_state["nome"] = usuario_encontrado.get("nome_completo")
+                            st.session_state["id_usuario"] = usuario_encontrado.get("_id")
+                            st.session_state["projetos"] = usuario_encontrado.get("projetos", [])
+
+                            # Reinicia a aplicação
+                            st.rerun()
+
+                        else:
+                            st.error("E-mail ou senha inválidos!")
+
+                    else:
+                        st.error("E-mail ou senha inválidos!")
+
+            # Espaçamento
+            st.write("")
+
+            # Botões auxiliares
+            with st.container(horizontal=True, horizontal_alignment="center", gap="small"):
+
+                # Recuperação de senha
+                st.button(
+                    "Esqueci a senha",
+                    key="forgot_password",
+                    type="tertiary",
+                    on_click=recuperar_senha_dialog
+                )
+
+                # Primeiro acesso
+                st.button(
+                    "Primeiro acesso",
+                    key="primeiro_acesso",
+                    type="tertiary",
+                    on_click=primeiro_acesso_dialog
+                )
+
 
 
 
 
 ##############################################################################################################
-# EXECUÇÃO PRINCIPAL: VERIFICA LOGIN E NAVEGA ENTRE PÁGINAS
+# EXECUÇÃO PRINCIPAL
 ##############################################################################################################
 
-# Verifica se está logado
-
-# Não logado:
+# Verifica autenticação
 if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
-    login()  # Mostra tela de login
 
+    login()
 
-# Logado:
 else:
+
 
     # Define as páginas disponíveis para cada tipo de usuário (com seções)
 

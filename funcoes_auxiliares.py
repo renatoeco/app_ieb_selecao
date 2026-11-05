@@ -2,15 +2,8 @@ import streamlit as st
 from pymongo import MongoClient
 import re
 
-# import datetime
-# import pandas as pd
-# import io
 from email.utils import formataddr
 
-# Google Drive API
-# from google.oauth2.service_account import Credentials
-# from googleapiclient.discovery import build
-# from googleapiclient.http import MediaIoBaseUpload
 
 # Envio de e-mail
 import smtplib
@@ -42,13 +35,14 @@ def configurar_containers_cinza():
         </style>
     """, unsafe_allow_html=True)
 
-def container_cinza():
+def container_cinza(width="stretch"):
     """
-    Cria um container com fundo cinza e borda personalizada.
+    Cria um container com fundo personalizado, borda e largura configurável.
     """
 
     return st_yled.container(
         key=f"container_cinza_{uuid4().hex}",
+        width=width,
         background_color="#fefefe",
         border_style="solid",
         border_color="#d0d0d0",
