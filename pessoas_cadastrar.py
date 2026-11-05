@@ -113,7 +113,7 @@ tipo_usuario = st.session_state.get("tipo_usuario", "")
 
 
 # Logo do sidebar
-st.logo("images/logo_ieb.svg", size='large')
+st.logo("images/logo_selecao.png", size='large')
 
 # Título da página
 st.header("Convidar pessoa")

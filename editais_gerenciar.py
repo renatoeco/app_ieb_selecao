@@ -381,7 +381,7 @@ def dialog_novo_edital():
 # INTERFACE PRINCIPAL
 ###########################################################################################################
 
-st.logo("images/logo_ieb.svg", size='large')
+st.logo("images/logo_selecao.png", size='large')
 st.header('Gerenciar Editais')
 
 ###########################################################################################################

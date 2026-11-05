@@ -82,7 +82,7 @@ def renderizar_tags(tags):
 ###########################################################################################################
 
 # Apresenta a logo na barra lateral.
-st.logo("images/logo_ieb.svg", size="large")
+st.logo("images/logo_selecao.png", size="large")
 
 st.header("Editais")
 

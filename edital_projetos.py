@@ -18,7 +18,7 @@ configurar_containers_cinza()
 # NAVEGAÇÃO
 ###########################################################################################################
 
-st.logo("images/logo_ieb.svg", size='large')
+st.logo("images/logo_selecao.png", size='large')
 
 tipo_usuario = st.session_state["tipo_usuario"]
 

@@ -5,7 +5,7 @@ import streamlit as st
 # NAVEGAÇÃO
 ###########################################################################################################
 
-st.logo("images/logo_ieb.svg", size="large")
+st.logo("images/selecao.png", size="large")
 
 with st.sidebar:
     if st.button("Voltar para Projetos", icon=":material/arrow_back:"):

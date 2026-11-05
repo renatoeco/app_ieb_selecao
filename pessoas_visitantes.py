@@ -119,7 +119,7 @@ def editar_pessoa(_id: str):
 
 
 # Logo do sidebar
-st.logo("images/logo_ieb.svg", size='large')
+st.logo("images/logo_selecao.png", size='large')
 
 st.header('Visitantes')
 

@@ -373,7 +373,7 @@ def login():
 
             # Logo centralizada
             with st.container(horizontal=True, horizontal_alignment="center"):
-                st.image("images/logo_ieb.svg", width=230)
+                st.image("images/logo_selecao.png", width=270)
 
             st.write("")
 
