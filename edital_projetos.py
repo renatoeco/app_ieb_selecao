@@ -59,36 +59,87 @@ col_pessoas = db["pessoas"]
 # FUNÇÕES AUXILIARES
 ###########################################################################################################
 
+
 @st.fragment
 def renderizar_projeto(projeto, indice):
     """Renderiza o container individual de uma proposta recebida."""
 
-    with container_cinza():
+    codigo = str(
+        projeto.get("codigo_recebimento") or indice
+    ).strip()
 
-        # Identificação do projeto.
-        codigo_recebimento = projeto.get("codigo_recebimento", "Sem código")
-        sigla = projeto.get("Sigla da organização", "Sem sigla")
-        nome_org = projeto.get("Nome da organização", "Organização sem nome")
+    chave_checkbox = f"selecionar_projeto_{codigo}"
 
-        st.markdown(
-            f'<span style="color: #2F5AA1; font-weight: bold;">{codigo_recebimento}</span> - '
-            f'**{sigla}** - {nome_org}',
-            unsafe_allow_html=True
-        )
+    # Organiza o checkbox e o container do projeto na mesma linha.
+    with st.container(horizontal=True, vertical_alignment="center"):
 
-        st.write(f"Projeto {projeto.get('Nome do projeto', 'Sem código')}")
+        # Exibe o checkbox somente no modo de seleção.
+        if st.session_state.get("_toggle_selecionar_projetos", False):
+            st.checkbox(
+                "",
+                key=chave_checkbox,
+                label_visibility="collapsed"
+            )
 
-        with st.container(horizontal=True, horizontal_alignment="right"):
-            # Botão para abrir a página de detalhes do projeto
-            if st.button(
-                "Ver projeto",
-                key=f"ver_projeto_{projeto.get('codigo_recebimento', indice)}",
-                icon=":material/visibility:",
-                type="primary"
-            ):
-                st.session_state["projeto_atual"] = projeto
-                st.session_state["pagina_atual"] = "ver_projeto"
-                st.rerun()        
+        with container_cinza():
+
+            # Identificação do projeto.
+            codigo_recebimento = projeto.get("codigo_recebimento", "Sem código")
+            sigla = projeto.get("Sigla da organização", "Sem sigla")
+            nome_org = projeto.get("Nome da organização", "Organização sem nome")
+
+            st.markdown(
+                f'<span style="color: #2F5AA1; font-weight: bold;">{codigo_recebimento}</span> - '
+                f'**{sigla}** - {nome_org}',
+                unsafe_allow_html=True
+            )
+
+            st.write(f"Projeto {projeto.get('Nome do projeto', 'Sem código')}")
+
+            with st.container(horizontal=True, horizontal_alignment="right"):
+
+                # Botão para abrir a página de detalhes do projeto.
+                if st.button(
+                    "Ver projeto",
+                    key=f"ver_projeto_{codigo}",
+                    icon=":material/visibility:",
+                    type="primary"
+                ):
+                    st.session_state["projeto_atual"] = projeto
+                    st.session_state["pagina_atual"] = "ver_projeto"
+                    st.rerun()
+
+
+# @st.fragment
+# def renderizar_projeto(projeto, indice):
+#     """Renderiza o container individual de uma proposta recebida."""
+
+#     with container_cinza():
+
+#         # Identificação do projeto.
+#         codigo_recebimento = projeto.get("codigo_recebimento", "Sem código")
+#         sigla = projeto.get("Sigla da organização", "Sem sigla")
+#         nome_org = projeto.get("Nome da organização", "Organização sem nome")
+
+#         st.markdown(
+#             f'<span style="color: #2F5AA1; font-weight: bold;">{codigo_recebimento}</span> - '
+#             f'**{sigla}** - {nome_org}',
+#             unsafe_allow_html=True
+#         )
+
+#         st.write(f"Projeto {projeto.get('Nome do projeto', 'Sem código')}")
+
+#         with st.container(horizontal=True, horizontal_alignment="right"):
+#             # Botão para abrir a página de detalhes do projeto
+#             if st.button(
+#                 "Ver projeto",
+#                 key=f"ver_projeto_{projeto.get('codigo_recebimento', indice)}",
+#                 icon=":material/visibility:",
+#                 type="primary"
+#             ):
+#                 st.session_state["projeto_atual"] = projeto
+#                 st.session_state["pagina_atual"] = "ver_projeto"
+#                 st.rerun()        
 
 
 @st.cache_data()
@@ -146,15 +197,12 @@ if not edital:
     st.warning("Nenhum edital foi selecionado.")
 
 else:
-    st.subheader("Projetos do edital "
+    st.subheader(
         f"{edital.get('codigo_edital', 'Não informado')} - "
         f"{edital.get('nome_edital', 'Edital sem nome')}"
     )
 
     st.write('')
-
-
-
 
 
     # Inicializa o estado do toggle.
@@ -265,7 +313,7 @@ else:
 
 
 
-                # Exibe a quantidade de propostas e as opções de visualização.
+                # Exibe a quantidade de propostas e o toggle e minhas avaliações
                 with st.container(horizontal=True, horizontal_alignment="distribute"):
 
                     st.markdown(
@@ -278,6 +326,8 @@ else:
                             "Minhas avaliações",
                             key="_toggle_minhas_avaliacoes"
                         )
+
+
 
 
 
@@ -294,14 +344,76 @@ else:
 
                 else:
 
-                    st.write("")
+
+
+
 
                     # Converte os registros do DataFrame em uma lista de dicionários.
                     propostas = df_projetos.to_dict(orient="records")
 
+
+                    # #########################################################################################################
+                    # LINHA DE BOTÕES DE AÇÃO
+                    # #########################################################################################################
+
+                    # Inicializa o estado do modo de seleção.
+                    if "_toggle_selecionar_projetos" not in st.session_state:
+                        st.session_state["_toggle_selecionar_projetos"] = False
+
+                    # Linha principal de ações.
+                    with st.container(horizontal=True, horizontal_alignment="left"):
+
+                        st.toggle(
+                            "Selecionar",
+                            key="_toggle_selecionar_projetos"
+                        )
+
+
+                    # Exibe as ações de seleção quando o modo estiver ativado.
+                    if st.session_state["_toggle_selecionar_projetos"]:
+
+                        with st.container(horizontal=True, horizontal_alignment="left"):
+
+                            # Seleciona todos os projetos da listagem atual.
+                            if st.button(
+                                "Selecionar todos",
+                                type="tertiary",
+                                key="selecionar_todos_projetos"
+                            ):
+
+                                for indice, projeto in enumerate(propostas):
+
+                                    codigo = str(
+                                        projeto.get("codigo_recebimento") or indice
+                                    ).strip()
+
+                                    st.session_state[f"selecionar_projeto_{codigo}"] = True
+
+                            # Limpa a seleção de todos os projetos da listagem atual.
+                            if st.button(
+                                "Limpar seleção",
+                                type="tertiary",
+                                key="limpar_selecao_projetos"
+                            ):
+
+                                for indice, projeto in enumerate(propostas):
+
+                                    codigo = str(
+                                        projeto.get("codigo_recebimento") or indice
+                                    ).strip()
+
+                                    st.session_state[f"selecionar_projeto_{codigo}"] = False
+
+
+                    # #########################################################################################################
+                    # RENDERIZAÇÃO DOS PROJETOS
+                    # #########################################################################################################
+
                     # Renderiza um fragmento individual para cada proposta.
                     for indice, projeto in enumerate(propostas):
                         renderizar_projeto(projeto, indice)
+
+
 
 
 
