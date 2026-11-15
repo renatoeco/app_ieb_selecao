@@ -16,6 +16,35 @@ from uuid import uuid4
 
 
 
+
+def renderizar_tag_css(tag):
+    """Renderiza uma tag individual com sua cor cadastrada."""
+
+    nome = tag.get("nome", "")
+    cor = tag.get("cor", "#808080")
+
+    st.markdown(
+        f"""
+        <span style="
+            display: inline-block;
+            background-color: {cor};
+            color: #FFFFFF;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            white-space: nowrap;
+        ">
+            {nome}
+        </span>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+
+
+
 def configurar_containers_cinza():
     """
     Configura o arredondamento e o espaçamento interno dos containers.
@@ -87,11 +116,6 @@ def converter_valor_brasileiro(valor_texto):
 
     # Garante duas casas decimais na precisão monetária
     return round(valor, 2)
-
-
-
-
-
 
 
 @st.cache_resource
