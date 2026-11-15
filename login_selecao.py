@@ -609,12 +609,17 @@ else:
         },
 
 
-        # Ver lista de projetos
+        # Páginas disponíveis durante a consulta de um edital
         "ver_projetos": [
             st.Page(
                 "edital_projetos.py",
                 title="Projetos",
                 icon=":material/folder_open:"
+            ),
+            st.Page(
+                "edital_resultado.py",
+                title="Resultado",
+                icon=":material/emoji_events:"
             ),
             st.Page(
                 "sair.py",
