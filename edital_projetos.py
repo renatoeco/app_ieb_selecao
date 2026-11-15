@@ -60,7 +60,7 @@ col_pessoas = db["pessoas"]
 ###########################################################################################################
 
 
-@st.fragment
+# @st.fragment
 def renderizar_projeto(projeto, indice):
     """Renderiza o container individual de uma proposta recebida."""
 
@@ -110,36 +110,6 @@ def renderizar_projeto(projeto, indice):
                     st.rerun()
 
 
-# @st.fragment
-# def renderizar_projeto(projeto, indice):
-#     """Renderiza o container individual de uma proposta recebida."""
-
-#     with container_cinza():
-
-#         # Identificação do projeto.
-#         codigo_recebimento = projeto.get("codigo_recebimento", "Sem código")
-#         sigla = projeto.get("Sigla da organização", "Sem sigla")
-#         nome_org = projeto.get("Nome da organização", "Organização sem nome")
-
-#         st.markdown(
-#             f'<span style="color: #2F5AA1; font-weight: bold;">{codigo_recebimento}</span> - '
-#             f'**{sigla}** - {nome_org}',
-#             unsafe_allow_html=True
-#         )
-
-#         st.write(f"Projeto {projeto.get('Nome do projeto', 'Sem código')}")
-
-#         with st.container(horizontal=True, horizontal_alignment="right"):
-#             # Botão para abrir a página de detalhes do projeto
-#             if st.button(
-#                 "Ver projeto",
-#                 key=f"ver_projeto_{projeto.get('codigo_recebimento', indice)}",
-#                 icon=":material/visibility:",
-#                 type="primary"
-#             ):
-#                 st.session_state["projeto_atual"] = projeto
-#                 st.session_state["pagina_atual"] = "ver_projeto"
-#                 st.rerun()        
 
 
 @st.cache_data()
@@ -405,15 +375,42 @@ else:
                                     st.session_state[f"selecionar_projeto_{codigo}"] = False
 
 
+                        # Reserva o espaço para a contagem de projetos selecionados.
+                        placeholder_contagem = st.empty()
+
+
+
                     # #########################################################################################################
                     # RENDERIZAÇÃO DOS PROJETOS
                     # #########################################################################################################
+
+                    st.write("")
 
                     # Renderiza um fragmento individual para cada proposta.
                     for indice, projeto in enumerate(propostas):
                         renderizar_projeto(projeto, indice)
 
 
+                    # Calcula a quantidade de projetos selecionados.
+                    if st.session_state["_toggle_selecionar_projetos"]:
+
+                        quantidade_selecionados = sum(
+                            1
+                            for indice, projeto in enumerate(propostas)
+                            if st.session_state.get(
+                                f"selecionar_projeto_{str(projeto.get('codigo_recebimento') or indice).strip()}",
+                                False
+                            )
+                        )
+
+                        texto_selecionados = (
+                            "1 projeto selecionado"
+                            if quantidade_selecionados == 1
+                            else f"{quantidade_selecionados} projetos selecionados"
+                        )
+
+                        # Atualiza o espaço reservado acima da listagem.
+                        placeholder_contagem.write(texto_selecionados)
 
 
 
