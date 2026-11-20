@@ -52,7 +52,7 @@ with st.sidebar:
 db = conectar_mongo_ieb_selecao()
 col_pessoas = db["pessoas"]
 col_projetos = db["projetos"]
-
+col_editais = db["editais"]
 
 
 
@@ -111,12 +111,15 @@ def renderizar_projeto(projeto, indice):
 
 
 
-            with st.container(
-                horizontal=True,
-                horizontal_alignment="distribute",
-                vertical_alignment="center"
-            ):
+            # with st.container(
+            #     horizontal=True,
+            #     horizontal_alignment="distribute",
+            #     vertical_alignment="center"
+            # ):
 
+            col1, col2 = st.columns([4,1])
+
+            with col1:
 
                 with st.container(horizontal=True, horizontal_alignment="left"):
 
@@ -141,90 +144,22 @@ def renderizar_projeto(projeto, indice):
                         if tag_id in ids_tags_projeto:
                             renderizar_tag_css(tag)
 
-                # Botão para abrir a página de detalhes do projeto.
-                if st.button(
-                    "Ver projeto",
-                    key=f"ver_projeto_{codigo}",
-                    icon=":material/visibility:",
-                    type="primary"
-                ):
-                    st.session_state["projeto_atual"] = projeto
-                    st.session_state["pagina_atual"] = "ver_projeto"
-                    st.rerun()
 
+            with col2:
 
-# def renderizar_projeto(projeto, indice):
-#     """Renderiza o container individual de uma proposta recebida."""
+                with st.container(horizontal=True, horizontal_alignment="right"):
 
-#     codigo = str(
-#         projeto.get("codigo_recebimento") or indice
-#     ).strip()
+                    # Botão para abrir a página de detalhes do projeto.
+                    if st.button(
+                        "Ver projeto",
+                        key=f"ver_projeto_{codigo}",
+                        icon=":material/visibility:",
+                        type="primary"
+                    ):
+                        st.session_state["projeto_atual"] = projeto
+                        st.session_state["pagina_atual"] = "ver_projeto"
+                        st.rerun()
 
-#     chave_checkbox = f"selecionar_projeto_{codigo}"
-
-#     # Organiza o checkbox e o container do projeto na mesma linha.
-#     with st.container(horizontal=True, vertical_alignment="center"):
-
-#         # Exibe o checkbox somente no modo de seleção.
-#         if st.session_state.get("_modo_selecao_projetos") == "Selecionar":
-#             st.checkbox(
-#                 "",
-#                 key=chave_checkbox,
-#                 label_visibility="collapsed"
-#             )
-
-#         with container_cinza():
-
-#             # Identificação do projeto.
-#             codigo_recebimento = projeto.get("codigo_recebimento", "Sem código")
-#             sigla = projeto.get("Sigla da organização", "Sem sigla")
-#             nome_org = projeto.get("Nome da organização", "Organização sem nome")
-
-#             st.markdown(
-#                 f'<span style="color: #2F5AA1; font-weight: bold;">{codigo_recebimento}</span> - '
-#                 f'**{sigla}** - {nome_org}',
-#                 unsafe_allow_html=True
-#             )
-
-#             st.write(f"Projeto {projeto.get('Nome do projeto', 'Sem código')}")
-
-#             with st.container(
-#                 horizontal=True,
-#                 horizontal_alignment="right",
-#                 vertical_alignment="center"
-#             ):
-
-#                 # Exibe o estágio atual em letras maiúsculas.
-#                 estagio = projeto.get("estagio")
-
-#                 if estagio:
-#                     st.markdown(f"**{str(estagio).upper()}**")
-
-#                 # Recupera os IDs das tags associadas ao projeto.
-#                 ids_tags_projeto = {
-#                     str(tag_id).strip()
-#                     for tag_id in (projeto.get("tags") or [])
-#                     if tag_id is not None
-#                 }
-
-#                 # Renderiza as tags cadastradas no edital.
-#                 for tag in edital.get("tags", []):
-
-#                     tag_id = str(tag.get("id", "")).strip()
-
-#                     if tag_id in ids_tags_projeto:
-#                         renderizar_tag_css(tag)
-
-#                 # Botão para abrir a página de detalhes do projeto.
-#                 if st.button(
-#                     "Ver projeto",
-#                     key=f"ver_projeto_{codigo}",
-#                     icon=":material/visibility:",
-#                     type="primary"
-#                 ):
-#                     st.session_state["projeto_atual"] = projeto
-#                     st.session_state["pagina_atual"] = "ver_projeto"
-#                     st.rerun()
 
 
 
@@ -280,6 +215,47 @@ def ler_planilha_google_sheets(id_planilha):
 
 edital = st.session_state.get("edital_selecionado")
 
+
+# Recupera as definições de estágios e tags diretamente do MongoDB.
+documento_edital = col_editais.find_one(
+    {"codigo_edital": edital.get("codigo_edital")},
+    {
+        "_id": 0,
+        "estagios": 1,
+        "tags": 1
+    }
+) if edital else {}
+
+estagios_filtro = (
+    documento_edital.get("estagios", [])
+    if documento_edital else []
+)
+
+tags_filtro = (
+    documento_edital.get("tags", [])
+    if documento_edital else []
+)
+
+# Organiza os estágios conforme a ordem cadastrada no edital.
+estagios_filtro = sorted(
+    estagios_filtro,
+    key=lambda item: item.get("ordem_estagio", 999999)
+)
+
+# Prepara as opções de tags utilizando seus IDs como valores.
+tags_filtro = [
+    tag for tag in tags_filtro
+    if str(tag.get("id", "")).strip()
+]
+
+nomes_tags_filtro = {
+    str(tag["id"]).strip(): tag.get("nome", "")
+    for tag in tags_filtro
+}
+
+
+
+
 if not edital:
     st.warning("Nenhum edital foi selecionado.")
 
@@ -330,7 +306,50 @@ else:
         try:
             df_propostas = ler_planilha_google_sheets(id_planilha)
 
+            # Recupera estágio e tags dos projetos cadastrados no edital.
+            documentos_projetos = list(
+                col_projetos.find(
+                    {"codigo_edital": edital.get("codigo_edital")},
+                    {
+                        "_id": 0,
+                        "codigo_recebimento": 1,
+                        "estagio": 1,
+                        "tags": 1
+                    }
+                )
+            )
 
+            # Organiza os metadados por código de recebimento.
+            metadados_por_codigo = {
+                str(documento.get("codigo_recebimento", "")).strip(): {
+                    "estagio": documento.get("estagio"),
+                    "tags": [
+                        str(tag_id).strip()
+                        for tag_id in (documento.get("tags") or [])
+                        if tag_id is not None
+                    ]
+                }
+                for documento in documentos_projetos
+            }
+
+            # Acrescenta os campos utilizados exclusivamente pelos filtros.
+            df_propostas["_estagio_filtro"] = (
+                df_propostas["codigo_recebimento"]
+                .astype(str)
+                .str.strip()
+                .map(
+                    lambda codigo: metadados_por_codigo.get(codigo, {}).get("estagio")
+                )
+            )
+
+            df_propostas["_tags_filtro"] = (
+                df_propostas["codigo_recebimento"]
+                .astype(str)
+                .str.strip()
+                .map(
+                    lambda codigo: metadados_por_codigo.get(codigo, {}).get("tags", [])
+                )
+            )
 
             if df_propostas.empty:
                 st.info("Nenhuma proposta encontrada na planilha.")
@@ -399,12 +418,11 @@ else:
 
 
 
-
-                # Exibe a quantidade de propostas e o toggle e minhas avaliações
+                # Exibe a quantidade total de propostas e o toggle de minhas avaliações.
                 with st.container(horizontal=True, horizontal_alignment="distribute"):
 
                     st.markdown(
-                        f"##### {len(df_projetos)} propostas recebidas"
+                        f"##### {len(df_propostas)} propostas recebidas"
                     )
 
                     # Apenas administradores e equipe podem alternar a visualização.
@@ -414,6 +432,97 @@ else:
                             key="_toggle_minhas_avaliacoes"
                         )
 
+                st.write("")
+
+                # Exibe os filtros e seleção somente para administradores e equipe,
+                # na visualização de todos os projetos.
+                if tipo_usuario in ["admin", "equipe"] and modo_projetos == "todos_projetos":
+
+                    st.segmented_control(
+                        "Modo de visualização",
+                        options=["Filtros", "Selecionar"],
+                        key="_modo_selecao_projetos",
+                        # width="stretch",
+                        label_visibility="collapsed"
+                    )
+
+                    # Identifica o edital para manter filtros independentes.
+                    codigo_edital_filtro = str(edital.get("codigo_edital", "")).strip()
+
+                    chave_filtro_estagios = f"_filtro_estagios_{codigo_edital_filtro}"
+                    chave_filtro_tags = f"_filtro_tags_{codigo_edital_filtro}"
+
+                    # Acrescenta Banco às opções, seguindo o comportamento da mudança de estágio.
+                    nomes_estagios_filtro = [
+                        estagio.get("nome_estagio", "").strip()
+                        for estagio in estagios_filtro
+                        if estagio.get("nome_estagio", "").strip()
+                    ]
+
+                    if "Banco" not in nomes_estagios_filtro:
+                        nomes_estagios_filtro.append("Banco")
+
+                    # Apresenta os dois filtros somente no modo Filtros.
+                    if st.session_state.get("_modo_selecao_projetos") == "Filtros":
+
+                        col_filtro_estagio, col_filtro_tags = st.columns(2)
+
+                        with col_filtro_estagio:
+                            st.multiselect(
+                                "Filtrar por estágio",
+                                options=nomes_estagios_filtro,
+                                key=chave_filtro_estagios,
+                                placeholder="Todos os estágios"
+                            )
+
+                        with col_filtro_tags:
+                            st.multiselect(
+                                "Filtrar por tags",
+                                options=list(nomes_tags_filtro.keys()),
+                                format_func=lambda tag_id: nomes_tags_filtro.get(tag_id, tag_id),
+                                key=chave_filtro_tags,
+                                placeholder="Todas as tags"
+                            )
+
+                    # Recupera as seleções, inclusive quando os filtros estão ocultos.
+                    estagios_selecionados = st.session_state.get(
+                        chave_filtro_estagios, []
+                    )
+
+                    tags_selecionadas = st.session_state.get(
+                        chave_filtro_tags, []
+                    )
+
+                    # Aplica o filtro por estágio.
+                    if estagios_selecionados:
+                        df_projetos = df_projetos[
+                            df_projetos["_estagio_filtro"].isin(estagios_selecionados)
+                        ].copy()
+
+                    # Aplica o filtro por tags.
+                    if tags_selecionadas:
+                        tags_selecionadas_set = set(tags_selecionadas)
+
+                        df_projetos = df_projetos[
+                            df_projetos["_tags_filtro"].apply(
+                                lambda tags: bool(
+                                    set(tags or []) & tags_selecionadas_set
+                                )
+                            )
+                        ].copy()
+
+                    # Exibe a quantidade de projetos somente quando houver filtros ativos.
+                    if estagios_selecionados or tags_selecionadas:
+
+                        quantidade_filtrada = len(df_projetos)
+
+                        texto_filtrado = (
+                            "1 projeto filtrado"
+                            if quantidade_filtrada == 1
+                            else f"{quantidade_filtrada} projetos filtrados"
+                        )
+
+                        st.write(texto_filtrado)
 
 
 
@@ -427,7 +536,7 @@ else:
                     if modo_projetos == "minhas_avaliacoes":
                         st.info("Nenhum projeto está atribuído a este usuário neste edital.")
                     else:
-                        st.warning("Este usuário não possui permissão para visualizar os projetos.")
+                        st.warning("Nenhum projeto encontrado.")
 
                 else:
 
@@ -449,6 +558,7 @@ else:
 
                     if tipo_usuario in ["admin", "equipe"] and modo_projetos == "todos_projetos":
 
+
                         # Inicializa o estado do modo de seleção.
                         if "_modo_selecao_projetos" not in st.session_state:
                             st.session_state["_modo_selecao_projetos"] = "Desativado"
@@ -459,17 +569,6 @@ else:
                         if mensagem_acao:
                             st.toast(mensagem_acao, icon=":material/check_circle:", duration="long")
 
-
-                        # Linha principal de ações.
-                        with st.container(horizontal=True, horizontal_alignment="left"):
-
-                            st.segmented_control(
-                                "Modo de seleção",
-                                options=["Filtros", "Selecionar"],
-                                key="_modo_selecao_projetos",
-                                width="stretch",
-                                label_visibility="collapsed"
-                            )
 
 
                         # Exibe as ações de seleção quando o modo estiver ativado.
@@ -636,7 +735,7 @@ else:
                                 vertical_alignment="center"
                             ):
 
-                                st.caption(texto_selecionados)
+                                st.write(texto_selecionados)
 
                                 # Agrupa os popovers à direita.
                                 with st.container(
