@@ -4,7 +4,11 @@ from bson import ObjectId
 from datetime import datetime
 import re
 
-from funcoes_auxiliares import conectar_mongo_ieb_selecao
+from funcoes_auxiliares import (
+    conectar_mongo_ieb_selecao,
+    sincronizar_conversas_gmail,
+    consultar_conversas_gmail
+)
 
 
 ###########################################################################################################
@@ -320,12 +324,14 @@ else:
             # ABAS
             ###########################################################################################################
 
-            aba_projeto, aba_anotacoes = st.tabs(
+            aba_projeto, aba_anotacoes, aba_mensagens = st.tabs(
                 [
                     ":material/description: Projeto",
-                    ":material/edit_note: Anotações"
+                    ":material/edit_note: Anotações",
+                    ":material/forum: Mensagens"
                 ],
-                key="abas_projeto"
+                key="abas_projeto",
+                on_change="rerun"
             )
 
 
@@ -512,3 +518,118 @@ else:
                                                 autor_anotacao
                                             )
 
+
+
+
+
+            ###########################################################################################################
+            # ABA 3 - MENSAGENS
+            ###########################################################################################################
+
+            if aba_mensagens.open:
+
+                with aba_mensagens:
+
+                    from email.utils import parseaddr
+
+                    from funcoes_auxiliares import (
+                        sincronizar_conversas_gmail,
+                        consultar_conversas_gmail
+                    )
+
+                    st.subheader("Mensagens")
+
+                    # Controla a sincronização inicial por projeto durante a sessão.
+                    chave_sincronizacao = f"gmail_sincronizado_{projeto_id}"
+
+                    if not st.session_state.get(chave_sincronizacao, False):
+
+                        resultado_sync = sincronizar_conversas_gmail(projeto_id)
+
+                        # Evita repetir a sincronização em atualizações da página.
+                        st.session_state[chave_sincronizacao] = True
+
+                        if not resultado_sync["sucesso"]:
+                            for erro in resultado_sync["erros"]:
+                                st.warning(erro)
+
+                    # Recupera o conteúdo das conversas diretamente do Gmail.
+                    resultado_consulta = consultar_conversas_gmail(projeto_id)
+
+                    if not resultado_consulta["sucesso"]:
+
+                        st.error(
+                            "Não foi possível carregar as mensagens: "
+                            + str(resultado_consulta["erro"])
+                        )
+
+                    elif not resultado_consulta["conversas"]:
+
+                        st.info(
+                            "Este projeto ainda não possui conversas registradas."
+                        )
+
+                    else:
+
+                        email_organizacao = str(
+                            projeto.get("E-mail da organização", "")
+                        ).strip().lower()
+
+                        # Exibe cada conversa em um container independente.
+                        for conversa in resultado_consulta["conversas"]:
+
+                            with st.container(border=True):
+
+                                mensagens = conversa.get("mensagens", [])
+
+                                assunto = (
+                                    mensagens[0].get("assunto", "Conversa")
+                                    if mensagens
+                                    else "Conversa"
+                                )
+
+                                st.markdown(f"**{assunto}**")
+
+                                st.caption(
+                                    f"{len(mensagens)} "
+                                    f"{'mensagem' if len(mensagens) == 1 else 'mensagens'}"
+                                )
+
+                                # Exibe as mensagens na ordem retornada pelo Gmail.
+                                for mensagem in mensagens:
+
+                                    remetente = parseaddr(
+                                        mensagem.get("remetente", "")
+                                    )[1].lower()
+
+                                    # Identifica as mensagens enviadas pela organização.
+                                    tipo_chat = (
+                                        "user"
+                                        if remetente == email_organizacao
+                                        else "assistant"
+                                    )
+
+                                    with st.chat_message(tipo_chat):
+
+                                        st.markdown(
+                                            f"**{mensagem.get('remetente', '')}**"
+                                        )
+
+                                        st.caption(
+                                            mensagem.get("data_mensagem", "")
+                                        )
+
+                                        if mensagem.get("corpo"):
+
+                                            if mensagem.get("tipo_conteudo") == "text/plain":
+
+                                                # Preserva as quebras de linha do texto original.
+                                                st.text(mensagem["corpo"])
+
+                                            elif mensagem.get("tipo_conteudo") == "text/html":
+
+                                                # Renderiza o conteúdo HTML original do e-mail.
+                                                st.html(mensagem["corpo"])
+
+                                        else:
+                                            st.caption("Não foi possível recuperar o conteúdo textual.")
