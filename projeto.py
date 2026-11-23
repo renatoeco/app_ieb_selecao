@@ -1,5 +1,6 @@
 
 import streamlit as st
+import pandas as pd
 from bson import ObjectId
 from datetime import datetime
 import re
@@ -12,7 +13,9 @@ from funcoes_auxiliares import (
     conectar_mongo_ieb_selecao,
     sincronizar_conversas_gmail,
     consultar_conversas_gmail,
-    recuperar_anexo_gmail
+    recuperar_anexo_gmail,
+    enviar_email_gmail,
+    responder_email_gmail
 )
 
 
@@ -43,6 +46,123 @@ with st.sidebar:
 ###########################################################################################################
 # FUNÇÕES AUXILIARES
 ###########################################################################################################
+
+
+@st.dialog("Enviar mensagem", width="medium")
+def dialog_enviar_mensagem(projeto_id, projeto):
+
+    # Recupera o e-mail da organização e remove espaços externos.
+    email_organizacao = str(
+        projeto.get("E-mail da organização", "") or ""
+    ).strip()
+
+    with st.form("form_enviar_mensagem"):
+
+        destinatarios_texto = st.text_input(
+            "Destinatários (endereços separados por vírgula)",
+            value=email_organizacao,
+            placeholder="email1@exemplo.com, email2@exemplo.com"
+        )
+
+        assunto = st.text_input(
+            "Assunto",
+            placeholder="Informe o assunto do e-mail"
+        )
+
+        texto_mensagem = st.text_area(
+            "Mensagem",
+            height=200,
+            placeholder="Digite a mensagem..."
+        )
+
+        enviar = st.form_submit_button(
+            "Enviar mensagem",
+            type="primary",
+            icon=":material/mail:"
+        )
+
+    if enviar:
+
+        # Separa os endereços, remove espaços externos e duplicidades.
+        lista_destinatarios = list(dict.fromkeys(
+            endereco.strip()
+            for endereco in destinatarios_texto.split(",")
+            if endereco.strip()
+        ))
+
+        # Recupera o identificador do usuário responsável pelo envio.
+        autor_id = st.session_state.get("id_usuario")
+
+        # Valida os campos obrigatórios.
+        if not lista_destinatarios:
+            st.error("Informe pelo menos um destinatário.")
+
+        elif not assunto.strip():
+            st.error("Informe o assunto da mensagem.")
+
+        elif not texto_mensagem.strip():
+            st.error("Escreva o conteúdo da mensagem.")
+
+        elif autor_id is None:
+            st.error("Não foi possível identificar o usuário logado.")
+
+        else:
+
+            # Verifica o formato dos endereços informados.
+            emails_invalidos = [
+                endereco
+                for endereco in lista_destinatarios
+                if not re.fullmatch(
+                    r"[^@\s]+@[^@\s]+\.[^@\s]+",
+                    endereco
+                )
+            ]
+
+            if emails_invalidos:
+
+                st.error(
+                    "Verifique os seguintes endereços de e-mail: "
+                    + ", ".join(emails_invalidos)
+                )
+
+            else:
+
+                with st.spinner("Enviando e-mail, aguarde..."):
+
+                    resultado = enviar_email_gmail(
+                        projeto_id=projeto_id,
+                        destinatarios=lista_destinatarios,
+                        assunto=assunto.strip(),
+                        mensagem=texto_mensagem,
+                        autor_id=autor_id
+                    )
+
+                if resultado["sucesso"]:
+
+                    st.toast(
+                        "Mensagem enviada com sucesso!",
+                        icon=":material/check_circle:"
+                    )
+
+                    st.rerun()
+
+
+                elif resultado["enviado"] and not resultado["registrado"]:
+
+                    st.warning(
+                        "O e-mail foi enviado, mas não foi possível "
+                        "registrar a conversa no sistema."
+                    )
+
+                    st.error(resultado["erro"])
+
+                else:
+
+                    st.error("Não foi possível enviar o e-mail.")
+                    st.caption(resultado["erro"])
+
+
+
 
 
 
@@ -655,8 +775,22 @@ else:
 
                 with aba_mensagens:
 
+                    st.write('')
 
-                    st.subheader("Mensagens")
+                    # Exibe o botão de envio somente para usuários que não são visitantes.
+                    if st.session_state.get("tipo_usuario") != "visitante":
+
+                        if st.button(
+                            "Enviar mensagem",
+                            icon=":material/mail:",
+                            type="primary"
+                        ):
+                            dialog_enviar_mensagem(
+                                projeto_id,
+                                st.session_state.get("projeto_atual", {})
+                            )
+
+                    st.write('')
 
                     # Controla a sincronização inicial por projeto durante a sessão.
                     chave_sincronizacao = f"gmail_sincronizado_{projeto_id}"
@@ -730,13 +864,26 @@ else:
 
                                     with st.chat_message(tipo_chat):
 
-                                        st.markdown(
-                                            f"**{mensagem.get('remetente', '')}**"
+
+                                        # Prioriza o nome do usuário registrado no MongoDB para a mensagem original.
+                                        autor_exibicao = (
+                                            mensagem.get("autor_nome")
+                                            or mensagem.get("remetente", "")
                                         )
 
-                                        st.caption(
-                                            mensagem.get("data_mensagem", "")
-                                        )
+                                        st.markdown(f"**{autor_exibicao}**")
+
+                                        # Exibe a data, a hora e todos os destinatários da mensagem.
+                                        data_mensagem = mensagem.get("data_mensagem", "")
+                                        destinatarios = mensagem.get("destinatarios", "")
+
+                                        if destinatarios:
+                                            st.caption(
+                                                f"{data_mensagem} · Para: {destinatarios}"
+                                            )
+                                        else:
+                                            st.caption(data_mensagem)
+
 
 
                                         # Exibe o conteúdo da mensagem conforme o formato retornado pelo Gmail.
@@ -831,3 +978,83 @@ else:
                                                             st.error(f"Erro: {status_anexo}")
 
 
+                                # Permite responder somente a usuários que não são visitantes.
+                                if st.session_state.get("tipo_usuario") != "visitante":
+
+                                    # Formulário para responder à conversa existente.
+                                    with st.form(
+                                        key=f"form_resposta_{conversa['gmail_thread_id']}",
+                                        border=False,
+                                        clear_on_submit=True
+                                    ):
+
+                                        texto_resposta = st.text_area(
+                                            "Responder à conversa",
+                                            height=120,
+                                            placeholder="Escreva sua resposta..."
+                                        )
+
+                                        enviar_resposta = st.form_submit_button(
+                                            "Enviar e-mail",
+                                            type="primary",
+                                            icon=":material/mail:"
+                                        )
+
+                                    if enviar_resposta:
+
+                                        autor_id = st.session_state.get("id_usuario")
+
+                                        if not texto_resposta.strip():
+
+                                            st.warning(
+                                                "Escreva uma mensagem antes de enviar."
+                                            )
+
+                                        elif autor_id is None:
+
+                                            st.error(
+                                                "Não foi possível identificar o usuário logado."
+                                            )
+
+                                        else:
+
+                                            # Envia a resposta na conversa existente.
+                                            resultado_resposta = responder_email_gmail(
+                                                projeto_id=projeto_id,
+                                                thread_id=conversa["gmail_thread_id"],
+                                                mensagem=texto_resposta,
+                                                autor_id=autor_id
+                                            )
+
+                                            if resultado_resposta["sucesso"]:
+
+                                                st.toast(
+                                                    "Resposta enviada e registrada com sucesso!",
+                                                    icon=":material/check_circle:"
+                                                )
+
+                                                st.rerun()
+
+                                            elif (
+                                                resultado_resposta["enviado"]
+                                                and not resultado_resposta["registrado"]
+                                            ):
+
+                                                st.warning(
+                                                    "A resposta foi enviada, mas não "
+                                                    "foi possível registrar no sistema."
+                                                )
+
+                                                st.error(
+                                                    resultado_resposta["erro"]
+                                                )
+
+                                            else:
+
+                                                st.error(
+                                                    "Não foi possível enviar a resposta."
+                                                )
+
+                                                st.caption(
+                                                    resultado_resposta["erro"]
+                                                )

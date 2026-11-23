@@ -18,6 +18,204 @@ from uuid import uuid4
 
 
 
+
+def responder_email_gmail(projeto_id, thread_id, mensagem, autor_id):
+    """Envia uma resposta a todos os participantes de uma conversa existente no Gmail."""
+
+    import base64
+    from email.mime.text import MIMEText
+    from email.utils import getaddresses
+
+    try:
+        # Valida o conteúdo e o identificador do autor.
+        if not mensagem.strip():
+            return {
+                "sucesso": False,
+                "enviado": False,
+                "registrado": False,
+                "erro": "A mensagem não pode estar vazia."
+            }
+
+        if autor_id is None:
+            return {
+                "sucesso": False,
+                "enviado": False,
+                "registrado": False,
+                "erro": "Não foi possível identificar o usuário responsável."
+            }
+
+        gmail = conectar_gmail()
+
+        # Recupera a conversa existente no Gmail.
+        thread = gmail.users().threads().get(
+            userId="me",
+            id=thread_id,
+            format="full"
+        ).execute()
+
+        mensagens_thread = thread.get("messages", [])
+
+        if not mensagens_thread:
+            raise Exception("A conversa não possui mensagens.")
+
+        # Identifica a mensagem mais recente da conversa.
+        ultima_mensagem = max(
+            mensagens_thread,
+            key=lambda item: int(item.get("internalDate", 0))
+        )
+
+        payload = ultima_mensagem.get("payload", {})
+
+        headers = {
+            item["name"].lower(): item["value"]
+            for item in payload.get("headers", [])
+        }
+
+        # Recupera o endereço da conta institucional.
+        perfil = gmail.users().getProfile(
+            userId="me"
+        ).execute()
+
+        email_proprio = perfil.get("emailAddress", "").lower()
+
+        # Reúne o remetente e os destinatários da última mensagem.
+        campos_destinatarios = [
+            headers.get("from", ""),
+            headers.get("to", ""),
+            headers.get("cc", "")
+        ]
+
+        enderecos = getaddresses(campos_destinatarios)
+
+        destinatarios = []
+        for _, endereco in enderecos:
+
+            endereco = endereco.strip().lower()
+
+            if (
+                endereco
+                and endereco != email_proprio
+                and endereco not in destinatarios
+            ):
+                destinatarios.append(endereco)
+
+        if not destinatarios:
+            raise Exception(
+                "Não foram encontrados destinatários para responder."
+            )
+
+        # Preserva o assunto original da conversa.
+        assunto_original = headers.get("subject", "")
+
+        if assunto_original.lower().startswith("re:"):
+            assunto_resposta = assunto_original
+        else:
+            assunto_resposta = f"Re: {assunto_original}"
+
+        # Prepara os cabeçalhos necessários para manter a conversa.
+        message_id_original = headers.get("message-id", "")
+
+        referencias = headers.get("references", "").strip()
+
+        if message_id_original:
+            if message_id_original not in referencias:
+                referencias = (
+                    f"{referencias} {message_id_original}".strip()
+                )
+
+        # Monta a mensagem de resposta.
+        email = MIMEText(mensagem, "plain", "utf-8")
+        email["To"] = ", ".join(destinatarios)
+        email["Subject"] = assunto_resposta
+
+        if message_id_original:
+            email["In-Reply-To"] = message_id_original
+
+        if referencias:
+            email["References"] = referencias
+
+        mensagem_codificada = base64.urlsafe_b64encode(
+            email.as_bytes()
+        ).decode("utf-8")
+
+        # Envia a resposta vinculada à conversa existente.
+        resposta = gmail.users().messages().send(
+            userId="me",
+            body={
+                "raw": mensagem_codificada,
+                "threadId": thread_id
+            }
+        ).execute()
+
+        novo_message_id = resposta.get("id")
+
+        if not novo_message_id:
+            return {
+                "sucesso": False,
+                "enviado": True,
+                "registrado": False,
+                "erro": "O Gmail não retornou o identificador da mensagem."
+            }
+
+    except Exception as erro:
+        return {
+            "sucesso": False,
+            "enviado": False,
+            "registrado": False,
+            "erro": str(erro)
+        }
+
+    try:
+        # Acrescenta a nova mensagem à conversa já registrada no projeto.
+        db_ieb_selecao = conectar_mongo_ieb_selecao()
+        col_projetos = db_ieb_selecao["projetos"]
+
+        resultado = col_projetos.update_one(
+            {
+                "_id": projeto_id,
+                "conversas.gmail_thread_id": thread_id
+            },
+            {
+                "$push": {
+                    "conversas.$.gmail_message_ids": novo_message_id,
+                    "conversas.$.autores_mensagens": {
+                        "gmail_message_id": novo_message_id,
+                        "autor_id": autor_id
+                    }
+                }
+            }
+        )
+
+        if resultado.matched_count == 0:
+            return {
+                "sucesso": False,
+                "enviado": True,
+                "registrado": False,
+                "erro": "A resposta foi enviada, mas a conversa não foi encontrada no MongoDB."
+            }
+
+        return {
+            "sucesso": True,
+            "enviado": True,
+            "registrado": True,
+            "gmail_thread_id": thread_id,
+            "gmail_message_id": novo_message_id
+        }
+
+    except Exception as erro:
+        return {
+            "sucesso": False,
+            "enviado": True,
+            "registrado": False,
+            "gmail_thread_id": thread_id,
+            "gmail_message_id": novo_message_id,
+            "erro": str(erro)
+        }
+
+
+
+
+
 def extrair_anexos_gmail(payload):
     """Identifica os anexos presentes na estrutura de uma mensagem Gmail."""
 
@@ -88,38 +286,45 @@ def recuperar_anexo_gmail(message_id, attachment_id):
 
 
 def remover_historico_resposta(texto):
-    """Remove o histórico de mensagens anteriores de uma resposta."""
+    """Remove o histórico de mensagens anteriores do corpo de uma resposta."""
 
-    import re
+    if not texto:
+        return texto
 
+    # Identifica separadores de respostas do Gmail em português e inglês.
+    padroes = [
+        r"\bEm\s+[\s\S]{1,1500}?\bescreveu\s*:",
+        r"\bOn\s+[\s\S]{1,1500}?\bwrote\s*:",
+        r"(?im)^[- ]*Original Message[- ]*$",
+        r"(?im)^[- ]*Mensagem original[- ]*$",
+        r"(?im)^De:\s+.+$"
+    ]
+
+    # Interrompe o conteúdo no primeiro separador encontrado.
+    for padrao in padroes:
+
+        resultado = re.search(
+            padrao,
+            texto,
+            flags=re.IGNORECASE
+        )
+
+        if resultado:
+            texto = texto[:resultado.start()]
+            break
+
+    # Remove linhas de citação iniciadas pelo sinal de maior.
     linhas = texto.splitlines()
-    linhas_filtradas = []
+    linhas_limpas = []
 
     for linha in linhas:
 
-        linha_limpa = linha.strip()
-
-        # Identifica os separadores mais comuns de mensagens citadas.
-        if re.match(
-            r"^(Em .+ escreveu:|On .+ wrote:)$",
-            linha_limpa,
-            flags=re.IGNORECASE
-        ):
+        if linha.lstrip().startswith(">"):
             break
 
-        if linha_limpa.startswith("-----Mensagem original-----"):
-            break
+        linhas_limpas.append(linha)
 
-        if linha_limpa.startswith("---------- Forwarded message"):
-            break
-
-        linhas_filtradas.append(linha)
-
-    return "\n".join(linhas_filtradas).strip()
-
-
-
-
+    return "\n".join(linhas_limpas).strip()
 
 
 
@@ -242,19 +447,40 @@ def sincronizar_conversas_gmail(projeto_id):
 
 
 
-def enviar_email_gmail(projeto_id, destinatario, assunto, mensagem):
-    """Envia um e-mail pelo Gmail e registra os identificadores no projeto, usando Gmail API, para o chat de mensagens do projeto."""
+def enviar_email_gmail(
+    projeto_id,
+    destinatarios,
+    assunto,
+    mensagem,
+    autor_id
+):
+    """Envia uma mensagem para múltiplos destinatários e registra a conversa no projeto."""
 
     import base64
     from email.mime.text import MIMEText
 
     try:
+        # Normaliza os endereços e remove valores vazios e duplicados.
+        destinatarios = list(dict.fromkeys(
+            str(email).strip()
+            for email in destinatarios
+            if email and str(email).strip()
+        ))
+
+        if not destinatarios:
+            return {
+                "sucesso": False,
+                "enviado": False,
+                "registrado": False,
+                "erro": "Nenhum destinatário informado."
+            }
+
         # Obtém o serviço autenticado do Gmail.
         gmail = conectar_gmail()
 
-        # Monta a mensagem no formato aceito pela API Gmail.
-        email = MIMEText(mensagem, "html", "utf-8")
-        email["To"] = destinatario
+        # Monta uma única mensagem para todos os destinatários.
+        email = MIMEText(mensagem, "plain", "utf-8")
+        email["To"] = ", ".join(destinatarios)
         email["Subject"] = assunto
 
         mensagem_codificada = base64.urlsafe_b64encode(
@@ -287,7 +513,7 @@ def enviar_email_gmail(projeto_id, destinatario, assunto, mensagem):
         }
 
     try:
-        # Registra somente os identificadores da conversa no projeto.
+        # Registra os identificadores da conversa e o autor no projeto.
         db_ieb_selecao = conectar_mongo_ieb_selecao()
         col_projetos = db_ieb_selecao["projetos"]
 
@@ -297,7 +523,8 @@ def enviar_email_gmail(projeto_id, destinatario, assunto, mensagem):
                 "$push": {
                     "conversas": {
                         "gmail_thread_id": thread_id,
-                        "gmail_message_ids": [message_id]
+                        "gmail_message_ids": [message_id],
+                        "autor_id": autor_id
                     }
                 }
             }
@@ -331,14 +558,12 @@ def enviar_email_gmail(projeto_id, destinatario, assunto, mensagem):
 
 
 
-
-
 def consultar_conversas_gmail(projeto_id):
     """Consulta no Gmail as conversas registradas no documento do projeto."""
 
     import base64
-
-    from email.utils import parsedate_to_datetime
+    from bson import ObjectId
+    from datetime import datetime, timezone
 
     def extrair_corpo(payload):
         """Extrai o conteúdo textual de uma mensagem, sem processar anexos."""
@@ -379,10 +604,46 @@ def consultar_conversas_gmail(projeto_id):
 
         return None, ""
 
+    def recuperar_nome_autor(autor_id):
+        """Recupera o nome do usuário pelo identificador armazenado no MongoDB."""
+
+        if autor_id is None:
+            return None
+
+        autor_id_busca = autor_id
+
+        # Converte identificadores textuais para ObjectId quando necessário.
+        if isinstance(autor_id, str):
+            try:
+                autor_id_busca = ObjectId(autor_id)
+            except Exception:
+                pass
+
+        pessoa = col_pessoas.find_one(
+            {"_id": autor_id_busca},
+            {"nome_completo": 1}
+        )
+
+        # Tenta localizar o registro caso o identificador esteja armazenado como texto.
+        if not pessoa and autor_id_busca != autor_id:
+            pessoa = col_pessoas.find_one(
+                {"_id": autor_id},
+                {"nome_completo": 1}
+            )
+
+        if pessoa:
+            return pessoa.get(
+                "nome_completo",
+                "Usuário não identificado"
+            )
+
+        return "Usuário não identificado"
+
     try:
-        # Recupera os identificadores das conversas no MongoDB.
+        # Recupera as conversas registradas no projeto.
         db_ieb_selecao = conectar_mongo_ieb_selecao()
         col_projetos = db_ieb_selecao["projetos"]
+        col_pessoas = db_ieb_selecao["pessoas"]
 
         projeto = col_projetos.find_one(
             {"_id": projeto_id},
@@ -416,6 +677,31 @@ def consultar_conversas_gmail(projeto_id):
             if not thread_id:
                 continue
 
+            # Recupera o autor da mensagem original.
+            autor_original_id = conversa_registrada.get("autor_id")
+
+            # Organiza os autores das respostas pelo identificador da mensagem.
+            autores_mensagens = {
+                item.get("gmail_message_id"): item.get("autor_id")
+                for item in conversa_registrada.get(
+                    "autores_mensagens",
+                    []
+                )
+                if item.get("gmail_message_id")
+            }
+
+            # Identifica o ID da mensagem original.
+            ids_mensagens_registradas = conversa_registrada.get(
+                "gmail_message_ids",
+                []
+            )
+
+            mensagem_original_id = (
+                ids_mensagens_registradas[0]
+                if ids_mensagens_registradas
+                else None
+            )
+
             thread = gmail.users().threads().get(
                 userId="me",
                 id=thread_id,
@@ -427,6 +713,7 @@ def consultar_conversas_gmail(projeto_id):
             for mensagem in thread.get("messages", []):
 
                 payload = mensagem.get("payload", {})
+
                 headers = {
                     item["name"].lower(): item["value"]
                     for item in payload.get("headers", [])
@@ -434,11 +721,10 @@ def consultar_conversas_gmail(projeto_id):
 
                 mime_type, corpo = extrair_corpo(payload)
 
+                # Formata a data e a hora da mensagem.
                 data_mensagem = mensagem.get("internalDate")
 
                 if data_mensagem:
-                    from datetime import datetime, timezone
-
                     data_mensagem = datetime.fromtimestamp(
                         int(data_mensagem) / 1000,
                         tz=timezone.utc
@@ -450,18 +736,52 @@ def consultar_conversas_gmail(projeto_id):
                 if mime_type == "text/plain":
                     corpo = remover_historico_resposta(corpo)
 
+                # Reúne os destinatários dos cabeçalhos To e Cc.
+                destinatarios = [
+                    headers.get("to", ""),
+                    headers.get("cc", "")
+                ]
+
+                destinatarios = ", ".join(
+                    endereco
+                    for endereco in destinatarios
+                    if endereco
+                )
+
+                gmail_message_id = mensagem.get("id")
+
+                # Recupera o autor associado à mensagem no MongoDB.
+                if gmail_message_id in autores_mensagens:
+
+                    autor_id_mensagem = autores_mensagens[
+                        gmail_message_id
+                    ]
+
+                elif gmail_message_id == mensagem_original_id:
+
+                    autor_id_mensagem = autor_original_id
+
+                else:
+
+                    autor_id_mensagem = None
+
+                # Recupera o nome somente quando existe um autor registrado.
+                autor_mensagem = recuperar_nome_autor(
+                    autor_id_mensagem
+                )
 
                 mensagens.append({
-                    "gmail_message_id": mensagem.get("id"),
+                    "gmail_message_id": gmail_message_id,
                     "remetente": headers.get("from", ""),
                     "destinatario": headers.get("to", ""),
+                    "destinatarios": destinatarios,
                     "assunto": headers.get("subject", ""),
                     "data_mensagem": data_mensagem,
                     "corpo": corpo,
                     "tipo_conteudo": mime_type,
+                    "autor_nome": autor_mensagem,
                     "anexos": extrair_anexos_gmail(payload)
                 })
-
 
             conversas.append({
                 "gmail_thread_id": thread_id,
@@ -480,9 +800,6 @@ def consultar_conversas_gmail(projeto_id):
             "conversas": [],
             "erro": str(erro)
         }
-
-
-
 
 
 @st.cache_resource
