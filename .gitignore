@@ -1,9 +1,5 @@
 env_ieb_selecao
 .streamlit/secrets.toml
 __pycache__
-documentos_auxiliares
 gerar_refresh_token.py
-teste_gmail.py
-teste_consultar_conversas.py
-teste_enviar_email.py
-teste_sincronizar_gmail.py
+
