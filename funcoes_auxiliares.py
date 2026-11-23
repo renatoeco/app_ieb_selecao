@@ -18,6 +18,72 @@ from uuid import uuid4
 
 
 
+def extrair_anexos_gmail(payload):
+    """Identifica os anexos presentes na estrutura de uma mensagem Gmail."""
+
+    anexos = []
+
+    def percorrer_partes(parte):
+        nome = parte.get("filename", "")
+        corpo = parte.get("body", {})
+        attachment_id = corpo.get("attachmentId")
+
+        # Registra arquivos que possuem identificador de anexo no Gmail.
+        if nome and attachment_id:
+            anexos.append({
+                "nome": nome,
+                "mime_type": parte.get("mimeType", "application/octet-stream"),
+                "attachment_id": attachment_id,
+                "tamanho": corpo.get("size", 0)
+            })
+
+        # Percorre também as partes internas de mensagens multipart.
+        for subparte in parte.get("parts", []):
+            percorrer_partes(subparte)
+
+    percorrer_partes(payload)
+
+    return anexos
+
+
+
+
+
+def recuperar_anexo_gmail(message_id, attachment_id):
+    """Recupera o conteúdo de um anexo diretamente da API Gmail."""
+
+    import base64
+
+    try:
+        gmail = conectar_gmail()
+
+        resposta = gmail.users().messages().attachments().get(
+            userId="me",
+            messageId=message_id,
+            id=attachment_id
+        ).execute()
+
+        dados = resposta.get("data", "")
+
+        # Decodifica o conteúdo codificado em Base64 URL-safe.
+        dados += "=" * (-len(dados) % 4)
+        arquivo = base64.urlsafe_b64decode(dados)
+
+        return {
+            "sucesso": True,
+            "arquivo": arquivo,
+            "erro": None
+        }
+
+    except Exception as erro:
+        return {
+            "sucesso": False,
+            "arquivo": None,
+            "erro": str(erro)
+        }
+
+
+
 
 
 
@@ -384,6 +450,7 @@ def consultar_conversas_gmail(projeto_id):
                 if mime_type == "text/plain":
                     corpo = remover_historico_resposta(corpo)
 
+
                 mensagens.append({
                     "gmail_message_id": mensagem.get("id"),
                     "remetente": headers.get("from", ""),
@@ -391,8 +458,10 @@ def consultar_conversas_gmail(projeto_id):
                     "assunto": headers.get("subject", ""),
                     "data_mensagem": data_mensagem,
                     "corpo": corpo,
-                    "tipo_conteudo": mime_type
+                    "tipo_conteudo": mime_type,
+                    "anexos": extrair_anexos_gmail(payload)
                 })
+
 
             conversas.append({
                 "gmail_thread_id": thread_id,

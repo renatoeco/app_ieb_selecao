@@ -4,11 +4,20 @@ from bson import ObjectId
 from datetime import datetime
 import re
 
+from email.utils import parseaddr
+
+
+
 from funcoes_auxiliares import (
     conectar_mongo_ieb_selecao,
     sincronizar_conversas_gmail,
-    consultar_conversas_gmail
+    consultar_conversas_gmail,
+    recuperar_anexo_gmail
 )
+
+
+
+
 
 
 ###########################################################################################################
@@ -29,6 +38,119 @@ with st.sidebar:
     if st.button("Voltar para Projetos", icon=":material/arrow_back:"):
         st.session_state["pagina_atual"] = "ver_projetos"
         st.rerun()
+
+
+###########################################################################################################
+# FUNÇÕES AUXILIARES
+###########################################################################################################
+
+
+
+def preparar_anexo_callback(message_id, attachment_id, chave_anexo):
+    """Recupera um anexo do Gmail e armazena o resultado na sessão."""
+
+    chave_log = f"log_{chave_anexo}"
+
+    st.session_state[chave_log] = [
+        "Callback iniciado.",
+        f"Message ID: {message_id}",
+        f"Attachment ID: {attachment_id}"
+    ]
+
+    try:
+        st.session_state[chave_log].append(
+            "Executando recuperação do anexo."
+        )
+
+        resultado = recuperar_anexo_gmail(
+            message_id,
+            attachment_id
+        )
+
+        if resultado["sucesso"]:
+            st.session_state[chave_anexo] = resultado["arquivo"]
+            st.session_state[f"status_{chave_anexo}"] = "sucesso"
+
+            st.session_state[chave_log].append(
+                f"Arquivo armazenado: {len(resultado['arquivo'])} bytes."
+            )
+
+        else:
+            st.session_state[f"status_{chave_anexo}"] = resultado["erro"]
+
+            st.session_state[chave_log].append(
+                f"Erro: {resultado['erro']}"
+            )
+
+    except Exception as erro:
+        st.session_state[f"status_{chave_anexo}"] = str(erro)
+
+        st.session_state[chave_log].append(
+            f"Exceção: {type(erro).__name__}: {erro}"
+        )
+
+
+
+
+
+# def preparar_anexo_callback(message_id, attachment_id, chave_anexo):
+#     """Recupera um anexo do Gmail e registra cada etapa da execução."""
+
+#     chave_log = f"log_{chave_anexo}"
+
+#     # Inicializa o registro de execução.
+#     st.session_state[chave_log] = [
+#         "Callback iniciado.",
+#         f"Message ID recebido: {message_id}",
+#         f"Attachment ID recebido: {attachment_id}"
+#     ]
+
+#     try:
+#         st.session_state[chave_log].append(
+#             "Chamando recuperar_anexo_gmail()."
+#         )
+
+#         resultado = recuperar_anexo_gmail(
+#             message_id,
+#             attachment_id
+#         )
+
+#         st.session_state[chave_log].append(
+#             f"Retorno recebido: sucesso={resultado.get('sucesso')}"
+#         )
+
+#         if resultado["sucesso"]:
+#             st.session_state[chave_anexo] = resultado["arquivo"]
+#             st.session_state[f"status_{chave_anexo}"] = "sucesso"
+
+#             st.session_state[chave_log].append(
+#                 f"Arquivo armazenado: {len(resultado['arquivo'])} bytes."
+#             )
+
+#         else:
+#             st.session_state[f"status_{chave_anexo}"] = resultado["erro"]
+
+#             st.session_state[chave_log].append(
+#                 f"Erro retornado pelo Gmail: {resultado['erro']}"
+#             )
+
+#     except Exception as erro:
+#         st.session_state[f"status_{chave_anexo}"] = str(erro)
+
+#         st.session_state[chave_log].append(
+#             f"Exceção no callback: {type(erro).__name__}: {erro}"
+#         )
+
+
+
+
+
+
+
+
+
+
+
 
 
 ###########################################################################################################
@@ -335,6 +457,9 @@ else:
             )
 
 
+
+
+
             ###########################################################################################################
             # ABA 1 - PROJETO
             ###########################################################################################################
@@ -530,12 +655,6 @@ else:
 
                 with aba_mensagens:
 
-                    from email.utils import parseaddr
-
-                    from funcoes_auxiliares import (
-                        sincronizar_conversas_gmail,
-                        consultar_conversas_gmail
-                    )
 
                     st.subheader("Mensagens")
 
@@ -619,6 +738,8 @@ else:
                                             mensagem.get("data_mensagem", "")
                                         )
 
+
+                                        # Exibe o conteúdo da mensagem conforme o formato retornado pelo Gmail.
                                         if mensagem.get("corpo"):
 
                                             if mensagem.get("tipo_conteudo") == "text/plain":
@@ -632,4 +753,81 @@ else:
                                                 st.html(mensagem["corpo"])
 
                                         else:
-                                            st.caption("Não foi possível recuperar o conteúdo textual.")
+                                            st.caption("Mensagem sem conteúdo textual.")
+
+
+
+
+
+
+                                        anexos = mensagem.get("anexos", [])
+
+                                        if anexos:
+
+                                            for indice, anexo in enumerate(anexos):
+
+                                                # A chave utiliza o projeto, a mensagem e a posição do anexo.
+                                                chave_anexo = (
+                                                    f"anexo_{projeto_id}_"
+                                                    f"{mensagem['gmail_message_id']}_"
+                                                    f"{indice}"
+                                                )
+
+                                                status_anexo = st.session_state.get(
+                                                    f"status_{chave_anexo}"
+                                                )
+
+                                                arquivo_anexo = st.session_state.get(chave_anexo)
+
+                                                # Organiza as informações e ações do anexo em quatro colunas.
+                                                col1, col2, col3 = st.columns([1, 3, 2])
+
+                                                with col1:
+                                                    if indice == 0:
+                                                        st.markdown("**Anexos:**")
+
+                                                with col2:
+                                                    tamanho = anexo.get("tamanho", 0)
+
+                                                    if tamanho < 1024:
+                                                        tamanho_formatado = f"{tamanho} B"
+                                                    elif tamanho < 1024 * 1024:
+                                                        tamanho_formatado = f"{tamanho / 1024:.1f} KB"
+                                                    else:
+                                                        tamanho_formatado = f"{tamanho / (1024 * 1024):.1f} MB"
+
+                                                    st.markdown(
+                                                        f"{anexo['nome']} ({tamanho_formatado})"
+                                                    )
+
+                                                with col3:
+
+                                                    with st.container(horizontal="True", horizontal_alignment="right"):
+
+                                                        st.button(
+                                                            "Preparar download",
+                                                            key=f"preparar_{chave_anexo}",
+                                                            type="secondary",
+                                                            on_click=preparar_anexo_callback,
+                                                            args=(
+                                                                mensagem["gmail_message_id"],
+                                                                anexo["attachment_id"],
+                                                                chave_anexo
+                                                            )
+                                                        )
+
+                                                        if status_anexo == "sucesso" and arquivo_anexo is not None:
+
+                                                            st.download_button(
+                                                                label="Baixar anexo",
+                                                                data=arquivo_anexo,
+                                                                file_name=anexo["nome"],
+                                                                mime=anexo["mime_type"],
+                                                                key=f"download_{chave_anexo}",
+                                                                type="primary"
+                                                            )
+
+                                                        elif status_anexo:
+                                                            st.error(f"Erro: {status_anexo}")
+
+
